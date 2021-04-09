@@ -85,16 +85,17 @@ function IR-Artifact-Acquisition-Setup($triageType) {
             exit 
             }
     }    
-
     if ($viable -eq 1){
         $ir_triage_path = $dsk_to_use + ':\Users\s839160\Documents\Automation_OpenSource\PowerShell\IRTriage'
-        $ir_triage_path_image = $ir_triage_path + '\image'
-        $ir_triage_path_report = $ir_triage_path + '\report'
+        $ir_triage_path_host = $ir_triage_path + '\' + $ENV:ComputerName
+        $ir_triage_path_image = $ir_triage_path_host + '\image'
+        $ir_triage_path_report = $ir_triage_path_host + '\report'
         $ir_triage_path_return = @($ir_triage_path_image, $ir_triage_path_report)
         if (!(Test-Path -Path $ir_triage_path)){
-            New-Item -ItemType directory -Path $ir_triage_path
-            New-Item -ItemType directory -Path $ir_triage_path_image
-            New-Item -ItemType directory -Path $ir_triage_path_report
+            New-Item -ItemType directory -Path $ir_triage_path | Out-Null
+            New-Item -ItemType directory -Path $ir_triage_path_host | Out-Null
+            New-Item -ItemType directory -Path $ir_triage_path_image | Out-Null
+            New-Item -ItemType directory -Path $ir_triage_path_report | Out-Null
             $screen_output = "[+] {0} IR Triage and Acquisition paths have been setup." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")
             Write-Output $screen_output
         }
@@ -109,6 +110,89 @@ function IR-Artifact-Acquisition-Setup($triageType) {
         exit
         }
     return $ir_triage_path_return
+}
+
+function IR-Artifact-Acquisition-Report-Creation($ir_report_var,$create_report='none',$post_output='none') {
+    $head = @’
+    <title>Artifact Collection Report</title>
+    <style>
+        body {
+            background-color: #F5FFFA;
+            }
+        table {
+            font-family: arial, sans-serif;
+            border-collapse: collapse;
+            width: 100%;
+            }
+        td, th {
+            border: 2px solid #008147;
+            text-align: left;
+            padding: 5px;
+            }
+        tr:nth-child(even) {
+            background-color: #90EE90;
+            }
+        th {
+            background-color: #228B22;
+            color: white;
+            }
+    </style>
+‘@
+    
+    if ($create_report -eq 'index'){
+        $body = @’
+            <p>
+                <center>
+                    <h2>
+                        Host Artifact Index
+                    </h2>
+                </center>
+            <p>
+                <h3>
+                    Index Report Links
+                </h3>
+                <button onclick="document.location='Environment.html'">Environment</button>
+                <button onclick="document.location='Network.html'">Network</button>
+                <button onclick="document.location='ProcSvc.html'">Processes and Services</button>
+                <button onclick="document.location='Users.html'">Users</button>
+   
+‘@
+        $postcontent = '<center><h1><h1></center>'
+        $html_report = 'index.html'
+    }
+    if ($create_report -eq 'env'){
+        $body = "<center><h2>OS Environment Artifact Report</h2></center>"
+        $postcontent = $post_output
+        $html_report = 'Environment.html'
+    }
+    if ($create_report -eq 'net'){
+        $body = "<center><h2>Network Config Artifact Report</h2></center>"
+        $postcontent = $post_output
+        $html_report = 'Network.html'
+    }
+    if ($create_report -eq 'procsvc'){
+        $body = "<center><h2>Processes and Services Artifact Report</h2></center>"
+        $postcontent = $post_output
+        $html_report = 'ProcSvc.html'
+    }
+    if ($create_report -eq 'users'){
+        $body = "<center><h2>Users Artifact Report</h2></center>"
+        $postcontent = $post_output
+        $html_report = 'Users.html'
+    }
+    
+    $precontent = '<pre> Host: ' + $ENV:ComputerName + ' ' + $(get-date -UFormat "Date: %Y-%m-%d Time: %H:%M:%S") + ' </pre>'
+
+    # HTML Parameters to create the final report
+    $htmlParams = @{
+        Head = $head
+        Body = $body
+        PreContent = $precontent
+        PostContent = $postcontent
+    }
+    $ir_report_full_path = $ir_report_var + "\" + $html_report
+    ConvertTo-HTML @htmlParams | Out-File $ir_report_full_path
+    Invoke-Item $ir_report_full_path
 }
 
 function IR-Artifact-Acquisition-Image($ir_image_var) {
@@ -217,8 +301,8 @@ function IR-Artifact-Acquisition-Report($ir_report_var) {
     $get_dns_cache = Get-DnsClientCache | ConvertTo-Html -As Table -PreContent ‘<h3>DNS Cache Info (Status 0 equals success)</h3>’ -Fragment -Property Entry, Data, TimeToLive, Status | Out-String
     # Host Running Services, Process, and Scheduled Task Artifacts converted into html fragments
     $get_procc = Get-Process | ConvertTo-Html -PreContent ‘<h3>Process Info</h3>’ -Fragment -Property ProcessName, Id, Handles, PriorityClass, FileVersion, Path | Out-String
-    $get_svc = Get-Service  | ConvertTo-Html -PreContent ‘<h3>Service Info</h3>’ -Fragment -Property Name, ServiceName, DisplayName,  Status, StartType | Out-String
-    $get_schd_tsk = Get-ScheduledTask | ConvertTo-Html -As Table -PreContent ‘<h3>Service Info</h3>’ -Fragment -Property TaskName, Author, Source, Description, URI, Version, State | Out-String
+    $get_svc = Get-Service  | ConvertTo-Html -PreContent ‘<h3> Service Info</h3>’ -Fragment -Property Name, ServiceName, DisplayName,  Status, StartType | Out-String
+    $get_schd_tsk = Get-ScheduledTask | ConvertTo-Html -As Table -PreContent ‘<h3>Scheduled Tasks Info</h3>’ -Fragment -Property TaskName, Author, Date, Description, URI, Version, State | Out-String
     $get_local_user = Get-LocalUser | ConvertTo-Html -As Table -PreContent ‘<h3>Local Users Info</h3>’ -Fragment -Property Name, FullName, SID, Description, LastLogon, PasswordRequired, PasswordLastSet, PasswordExpires, UserMayChangePassword, Enabled | Out-String
     # HTML Parameters to create the final report
     $htmlParams = @{

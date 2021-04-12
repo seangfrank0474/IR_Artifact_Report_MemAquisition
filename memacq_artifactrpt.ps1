@@ -112,7 +112,10 @@ function IR-Artifact-Acquisition-Setup($triageType) {
     return $ir_triage_path_return
 }
 
-function IR-Artifact-Acquisition-Report-Creation($ir_report_var,$create_report='none',$post_output='none') {
+function IR-Artifact-Acquisition-Report-Creation($report_array) {
+    $ir_report_var = $report_array[0]
+    $create_report = $report_array[1]
+    $post_output = $report_array[2]
     $head = @’
     <title>Artifact Collection Report</title>
     <style>
@@ -199,38 +202,29 @@ function IR-Artifact-Acquisition-Image($ir_image_var) {
     Write-Output $ir_image_var
 }
 
-function IR-Artifact-Acquisition-Report($ir_report_var) {
-    $head = @’
-    <title>Artifact Collection Report</title>
-    <style>
-        body {
-            background-color: #F5FFFA;
-            }
-        table {
-            font-family: arial, sans-serif;
-            border-collapse: collapse;
-            width: 100%;
-            }
-        td, th {
-            border: 2px solid #008147;
-            text-align: left;
-            padding: 5px;
-            }
-        tr:nth-child(even) {
-            background-color: #90EE90;
-            }
-        th {
-            background-color: #228B22;
-            color: white;
-            }
-    </style>
-‘@
+function IR-Artifact-Acquisition-Environment($ir_report_var) {  
+    $create_report = 'env'  
     # Host OS Environment Artifacts converted into html fragments
     $get_proc = Get-WmiObject -Class Win32_Processor -ErrorAction SilentlyContinue | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>Processor Info</h3>’ -Property Name, Caption, Manufacturer, MaxClockSpeed, SocketDesignation | Out-String
     $get_bios = Get-WmiObject -Class Win32_Bios -ErrorAction SilentlyContinue | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>BIOS Info</h3>’ -Property Name, Manufacturer, Version, SMBIOSBIOSVersion, SerialNumber | Out-String
     $get_os = Get-WmiObject -Class Win32_OperatingSystem -ErrorAction SilentlyContinue | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>OS Info</h3>’ -Property Organization, RegisteredUser, Version, BuildNumber, SerialNumber, SystemDirectory | Out-String
     $get_drv = Get-WmiObject -Class Win32_LogicalDisk -Filter 'DriveType=3' -ErrorAction SilentlyContinue | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>Drive Info</h3>’ -Property DeviceID, DriveType, ProviderName, Size, FreeSpace | Out-String
     $get_env = Get-ChildItem ENV: -ErrorAction SilentlyContinue | ConvertTo-Html -As TABLE -Fragment -PreContent ‘<h3>Environment Info</h3>’ -Property Name, Value| Out-String
+    $get_local_user = Get-LocalUser | ConvertTo-Html -As Table -PreContent ‘<h3>Local Users Info</h3>’ -Fragment -Property Name, FullName, SID, Description, LastLogon, PasswordRequired, PasswordLastSet, PasswordExpires, UserMayChangePassword, Enabled | Out-String
+    $get_local_admins = & net localgroup administrators | Select-Object -Skip 6 | ? {
+    $_ -and $_ -notmatch "The command completed successfully" 
+    } | % {
+    $o = "" | Select-Object Account
+    $o.Account = $_
+    $o
+    } | ConvertTo-Html -As Table -PreContent ‘<h3>Local Admin Members Info</h3>’ -Fragment -Property Account | Out-String
+    $post_output = @($get_proc, $get_bios, $get_os, $get_drv, $get_env, $get_local_user, $get_local_admins)
+    $report_array = @($ir_report_var, $create_report, $post_output)
+    IR-Artifact-Acquisition-Report-Creation($report_array)
+}
+
+function IR-Artifact-Acquisition-Network($ir_report_var) {
+    $create_report = 'net'
     # Host Network Config Artifacts
     # Host Network Config Artifacts Arrays
     $net_adpt_result = @()
@@ -298,27 +292,42 @@ function IR-Artifact-Acquisition-Report($ir_report_var) {
     $net_rt = $net_rt_result | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>Network Routing Info</h3>’ | Out-String
     $net_bnd = $net_bnd_result | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>Network Component Info</h3>’ | Out-String
     $net_arp = $net_arp_result | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>Arp Cache Info</h3>’ | Out-String
+    $get_smb = Get-SmbShare -ErrorAction SilentlyContinue | Select-Object Name, ShareType, Path, Description, SecurityDescriptor, EncryptData, CurrentUsers | ConvertTo-Html -As Table -PreContent ‘<h3>SMB Shares Info</h3>’ -Fragment | Out-String
     $get_dns_cache = Get-DnsClientCache | ConvertTo-Html -As Table -PreContent ‘<h3>DNS Cache Info (Status 0 equals success)</h3>’ -Fragment -Property Entry, Data, TimeToLive, Status | Out-String
+    $post_output = @($net_adpt, $net_cfg, $net_rt, $net_bnd, $net_arp, $get_smb, $get_dns_cache)
+    $report_array = @($ir_report_var, $create_report, $post_output)
+    IR-Artifact-Acquisition-Report-Creation($report_array)
+}
+
+function IR-Artifact-Acquisition-Process($ir_report_var) {
+    $create_report = 'procsvc'
     # Host Running Services, Process, and Scheduled Task Artifacts converted into html fragments
     $get_procc = Get-Process | ConvertTo-Html -PreContent ‘<h3>Process Info</h3>’ -Fragment -Property ProcessName, Id, Handles, PriorityClass, FileVersion, Path | Out-String
     $get_svc = Get-Service  | ConvertTo-Html -PreContent ‘<h3> Service Info</h3>’ -Fragment -Property Name, ServiceName, DisplayName,  Status, StartType | Out-String
     $get_schd_tsk = Get-ScheduledTask | ConvertTo-Html -As Table -PreContent ‘<h3>Scheduled Tasks Info</h3>’ -Fragment -Property TaskName, Author, Date, Description, URI, Version, State | Out-String
-    $get_local_user = Get-LocalUser | ConvertTo-Html -As Table -PreContent ‘<h3>Local Users Info</h3>’ -Fragment -Property Name, FullName, SID, Description, LastLogon, PasswordRequired, PasswordLastSet, PasswordExpires, UserMayChangePassword, Enabled | Out-String
-    # HTML Parameters to create the final report
-    $htmlParams = @{
-        Head = $head
-        Body = "<center><h2>Host Artifact Report</h2></center>"
-        PreContent = "
-          <pre>
-              Host: $ENV:ComputerName 
-              Date: $(get-date -UFormat "%Y-%m-%d Time: %H:%M:%S")
-          </pre>"
-        PostContent = $get_proc, $get_bios, $get_os, $get_drv, $get_env, $net_adpt, $net_cfg, $net_rt, $net_bnd, $net_arp, $get_dns_cache, $get_svc, $get_procc, $get_schd_tsk, $get_local_user
+    $get_proc_mod_out = Get-Process -ErrorAction SilentlyContinue | % { 
+    $MM = $_.MainModule | Select-Object -ExpandProperty FileName
+    $Modules = $($_.Modules | Select-Object -ExpandProperty FileName)
+    $currPID = $_.Id
+ 
+    foreach($Module in $Modules) {
+        $get_proc_mod = "" | Select-Object Name, ParentPath, ProcessName, ProcPID, CreateUTC, LastAccessUTC, LastWriteUTC
+        $get_proc_mod.Name = $Module.Substring($Module.LastIndexOf("\") + 1)
+        $get_proc_mod.ParentPath = $Module.Substring(0, $Module.LastIndexOf("\"))
+        $get_proc_mod.ProcessName = ($MM.Split('\'))[-1]
+        $get_proc_mod.ProcPID = $currPID
+        $get_proc_mod.CreateUTC = (Get-Item -Force $Module).CreationTimeUtc
+        $get_proc_mod.LastAccessUTC = (Get-Item -Force $Module).LastAccessTimeUtc
+        $get_proc_mod.LastWriteUTC = (Get-Item -Force $Module).LastWriteTimeUtc
+        $get_proc_mod
     }
-    $ir_report_full_path = $ir_report_var + "\ArtifactReport" + $(get-date -UFormat "%Y-%m-%dT%H-%M-%S") + ".html"
-    ConvertTo-HTML @htmlParams | Out-File $ir_report_full_path
-    Invoke-Item $ir_report_full_path
+    } | ConvertTo-Html -As Table -PreContent ‘<h3>Process and Loaded Modules Info</h3>’ -Fragment -Property ProcessName, ProcPID, Name, ParentPath, CreateUTC, LastAccessUTC, LastWriteUTC| Out-String
+    $post_output = @($get_procc, $get_proc_mod_out, $get_svc, $get_schd_tsk)
+    $report_array = @($ir_report_var, $create_report, $post_output)
+    IR-Artifact-Acquisition-Report-Creation($report_array)
 }
+
+function IR-Artifact-Acquisition-File($ir_report_var) {}
 
 $ir_cmd_array = @('both', 'image', 'report')
 if ( $args.count -eq 0 ){
@@ -329,7 +338,7 @@ elseif ( $args[0] -in $ir_cmd_array ){
     }
 else {
     $triageType = $args[0]
-    $screen_output = "[+] {0} Triage type is unknown. Default variable: report Valid variables: image,report,both. Variable used: {1}. Script exiting." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $triageType
+    $screen_output = "[+] {0} Triage type is unknown. (Default variable: report - Valid variables: image,report,both) Variable used: {1}. Script exiting." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $triageType
     Write-Output $screen_output
     exit 
     }
@@ -358,7 +367,11 @@ if ($triageType -eq 'report') {
     $ir_report_var = $ir_setup_out[3]
     $screen_output = "[+] {0} IR Triage and Acquisition - report path: {1}" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
     Write-Output $screen_output
-    IR-Artifact-Acquisition-Report($ir_report_var)
+    IR-Artifact-Acquisition-Report-Creation($ir_report_var,'index','None')
+    IR-Artifact-Acquisition-Environment($ir_report_var)
+    IR-Artifact-Acquisition-Network($ir_report_var)
+    IR-Artifact-Acquisition-Process($ir_report_var)
+    #IR-Artifact-Acquisition-Report($ir_report_var)
     }
 
 $screen_output = "[+] {0} IR Triage and Acquisition is complete. Exiting the script." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")

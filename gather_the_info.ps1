@@ -1,31 +1,4 @@
-﻿if (Get-Command Get-SmbShare -ErrorAction SilentlyContinue) {
-    Get-SmbShare
-}
-
-& net localgroup administrators | Select-Object -Skip 6 | ? {
-    $_ -and $_ -notmatch "The command completed successfully" 
-} | % {
-    $o = "" | Select-Object Account
-    $o.Account = $_
-    $o
-}
-
-& $env:windir\system32\tasklist.exe /v /fo csv | Select-Object -Skip 1 | % {
-    $o = "" | Select-Object ImageName,PID,SessionName,SessionNum,MemUsage,Status,UserName,CPUTime,WindowTitle
-    $row = $_ -replace '(,)(?=(?:[^"]|"[^"]*")*$)', "`t" -replace "`""
-    $o.ImageName, 
-    $o.PID,
-    $o.SessionName,
-    $o.SessionNum,
-    $o.MemUsage,
-    $o.Status,
-    $o.UserName,
-    $o.CPUTime,
-    $o.WindowTitle = ( $row -split "`t" )
-    $o
-}
-
-If (Get-Content $env:windir\system32\drivers\etc\hosts){
+﻿If (Get-Content $env:windir\system32\drivers\etc\hosts){
     "Get-Content $env:windir\system32\drivers\etc\hosts"
     "`n"
     Get-Content $env:windir\system32\drivers\etc\hosts
@@ -198,13 +171,57 @@ $Null = New-PSDrive -Name HKU -PSProvider Registry -Root HKEY_USERS
         }
 
 StartMenu Stuff
+$get_user_start_array = @()
+$get_progdata_strt = (Get-ChildItem C:\ProgramData\Microsoft\Windows\Start` Menu\Programs | Select-Object BaseName, FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes | ConvertTo-Html -As Table -Fragment -PreContent '<h3>Program Data Start Menu</h3>' | Out-String)
+$get_user_start_array += $get_progdata_strt
 $get_user_array = (Get-ChildItem C:\Users).Name
-foreach ($user_in in $get_user_array){
-`
-$get_strt = (Get-ChildItem C:\Users\$user_in\AppData\Roaming\Microsoft\Windows\Start` Menu\Programs | Select-Object *)
-Write-Output $get_strt
-
+foreach ($user_in in $get_user_array) {
+    $get_strt = (Get-ChildItem C:\Users\$user_in\AppData\Roaming\Microsoft\Windows\Start` Menu\Programs -ErrorAction SilentlyContinue | Select-Object BaseName, FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes)
+    $precontent = ‘<h3>' + $user_in + ' Start Menu Info</h3>’
+    $user_start = $get_strt | ConvertTo-Html -As Table -Fragment -PreContent $precontent | Out-String
+    $get_user_start_array += $user_start
 }
 
-#C:\ProgramData\Microsoft\Windows\Start Menu\Programs
-#C:\Users\<User>\AppData\Roaming\Microsoft\Windows\Start Menu\Programs
+
+$htmlParams = @{
+       PreContent = "
+          <pre>
+              Host: $ENV:ComputerName 
+              Date: $(get-date -UFormat "%Y-%m-%d Time: %H:%M:%S")
+          </pre>"
+        PostContent = $get_user_start_array
+    }
+    $ir_report_full_path = "\ArtifactReport" + $(get-date -UFormat "%Y-%m-%dT%H-%M-%S") + ".html"
+    ConvertTo-HTML @htmlParams | Out-File $ir_report_full_path
+    Invoke-Item $ir_report_full_path
+
+foreach($userpath in (Get-WmiObject win32_userprofile | Select-Object -ExpandProperty localpath)) {
+    if (Test-Path(($userpath + "\AppData\Local\Temp\"))) {
+        Get-ChildItem -Force ($userpath + "\AppData\Local\Temp\*") | Select-Object BaseName, FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes
+    }
+    if (Test-Path(($userpath + "\AppData\Roaming\Microsoft\Windows\Start Menu\Programs"))) {
+        Get-ChildItem -Force ($userpath + "\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\*") | Select-Object BaseName, FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes
+    }
+    if (Test-Path(($userpath + "\Downloads"))) {
+        Get-ChildItem -Force ($userpath + "\Downloads\*") | Select-Object BaseName, FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes
+    }
+}
+
+Prefetch
+
+$pfconf = (Get-ItemProperty "hklm:\system\currentcontrolset\control\session manager\memory management\prefetchparameters").EnablePrefetcher 
+Switch -Regex ($pfconf) {
+    "[1-3]" {
+        $o = "" | Select-Object FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc
+        ls $env:windir\Prefetch\*.pf | % {
+            $o.FullName = $_.FullName;
+            $o.CreationTimeUtc = Get-Date($_.CreationTimeUtc) -format o;
+            $o.LastAccesstimeUtc = Get-Date($_.LastAccessTimeUtc) -format o;
+            $o.LastWriteTimeUtc = Get-Date($_.LastWriteTimeUtc) -format o;
+            $o
+        }
+    }
+    default {
+        Write-Output "Prefetch not enabled on ${env:COMPUTERNAME}."
+    }
+}

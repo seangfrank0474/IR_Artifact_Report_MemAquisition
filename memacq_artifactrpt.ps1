@@ -22,6 +22,7 @@
     Then run commands to collect artifacts in an HTML report. 
 
 .EXAMPLE
+     Need to run in elevated privileges
      .\memacq_artifactrpt.ps1 both
 
 .INPUTS
@@ -85,16 +86,17 @@ function IR-Artifact-Acquisition-Setup($triageType) {
             exit 
             }
     }    
-
     if ($viable -eq 1){
         $ir_triage_path = $dsk_to_use + ':\Users\s839160\Documents\Automation_OpenSource\PowerShell\IRTriage'
-        $ir_triage_path_image = $ir_triage_path + '\image'
-        $ir_triage_path_report = $ir_triage_path + '\report'
+        $ir_triage_path_host = $ir_triage_path + '\' + $ENV:ComputerName
+        $ir_triage_path_image = $ir_triage_path_host + '\image'
+        $ir_triage_path_report = $ir_triage_path_host + '\report'
         $ir_triage_path_return = @($ir_triage_path_image, $ir_triage_path_report)
         if (!(Test-Path -Path $ir_triage_path)){
-            New-Item -ItemType directory -Path $ir_triage_path
-            New-Item -ItemType directory -Path $ir_triage_path_image
-            New-Item -ItemType directory -Path $ir_triage_path_report
+            New-Item -ItemType directory -Path $ir_triage_path | Out-Null
+            New-Item -ItemType directory -Path $ir_triage_path_host | Out-Null
+            New-Item -ItemType directory -Path $ir_triage_path_image | Out-Null
+            New-Item -ItemType directory -Path $ir_triage_path_report | Out-Null
             $screen_output = "[+] {0} IR Triage and Acquisition paths have been setup." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")
             Write-Output $screen_output
         }
@@ -115,38 +117,29 @@ function IR-Artifact-Acquisition-Image($ir_image_var) {
     Write-Output $ir_image_var
 }
 
-function IR-Artifact-Acquisition-Report($ir_report_var) {
-    $head = @’
-    <title>Artifact Collection Report</title>
-    <style>
-        body {
-            background-color: #F5FFFA;
-            }
-        table {
-            font-family: arial, sans-serif;
-            border-collapse: collapse;
-            width: 100%;
-            }
-        td, th {
-            border: 2px solid #008147;
-            text-align: left;
-            padding: 5px;
-            }
-        tr:nth-child(even) {
-            background-color: #90EE90;
-            }
-        th {
-            background-color: #228B22;
-            color: white;
-            }
-    </style>
-‘@
+function IR-Artifact-Acquisition-Environment($ir_report_var) {  
+    $create_report = 'env'  
     # Host OS Environment Artifacts converted into html fragments
     $get_proc = Get-WmiObject -Class Win32_Processor -ErrorAction SilentlyContinue | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>Processor Info</h3>’ -Property Name, Caption, Manufacturer, MaxClockSpeed, SocketDesignation | Out-String
     $get_bios = Get-WmiObject -Class Win32_Bios -ErrorAction SilentlyContinue | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>BIOS Info</h3>’ -Property Name, Manufacturer, Version, SMBIOSBIOSVersion, SerialNumber | Out-String
     $get_os = Get-WmiObject -Class Win32_OperatingSystem -ErrorAction SilentlyContinue | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>OS Info</h3>’ -Property Organization, RegisteredUser, Version, BuildNumber, SerialNumber, SystemDirectory | Out-String
     $get_drv = Get-WmiObject -Class Win32_LogicalDisk -Filter 'DriveType=3' -ErrorAction SilentlyContinue | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>Drive Info</h3>’ -Property DeviceID, DriveType, ProviderName, Size, FreeSpace | Out-String
     $get_env = Get-ChildItem ENV: -ErrorAction SilentlyContinue | ConvertTo-Html -As TABLE -Fragment -PreContent ‘<h3>Environment Info</h3>’ -Property Name, Value| Out-String
+    $get_local_user = Get-LocalUser | ConvertTo-Html -As Table -PreContent ‘<h3>Local Users Info</h3>’ -Fragment -Property Name, FullName, SID, Description, LastLogon, PasswordRequired, PasswordLastSet, PasswordExpires, UserMayChangePassword, Enabled | Out-String
+    $get_local_admins = & net localgroup administrators | Select-Object -Skip 6 | ? {
+    $_ -and $_ -notmatch "The command completed successfully" 
+    } | % {
+    $o = "" | Select-Object Account
+    $o.Account = $_
+    $o
+    } | ConvertTo-Html -As Table -PreContent ‘<h3>Local Admin Members Info</h3>’ -Fragment -Property Account | Out-String
+    $post_output = @($get_proc, $get_bios, $get_os, $get_drv, $get_env, $get_local_user, $get_local_admins)
+    $report_array = @($ir_report_var, $create_report, $post_output)
+    IR-Artifact-Acquisition-Report-Creation($report_array)
+}
+
+function IR-Artifact-Acquisition-Network($ir_report_var) {
+    $create_report = 'net'
     # Host Network Config Artifacts
     # Host Network Config Artifacts Arrays
     $net_adpt_result = @()
@@ -208,30 +201,262 @@ function IR-Artifact-Acquisition-Report($ir_report_var) {
             'State' = $get_net_arp[$i].State -join ','
             })
     }
+    $files_array = @()
+    $fileline = @()
+    $host_net_array = @()
+    If (Get-Content $env:windir\system32\drivers\etc\hosts){
+        $get_hosts_file = $env:windir + "\system32\drivers\etc\hosts"
+        $files_array += $get_hosts_file
+        $html_prop = "Host File: " + $env:windir + "\system32\drivers\etc\hosts"
+        $obj_name = "HostFile"
+    }
+    If (Get-Content $env:windir\system32\drivers\etc\networks){
+        $get_network_file = $env:windir + "\system32\drivers\etc\networks"
+        $files_array += $get_network_file
+        $html_prop = "Host File: " + $env:windir + "\system32\drivers\etc\networks"
+        $obj_name = "NetworkFile"
+    }
+    Foreach ($files in $files_array) {
+        $get_file_content = Get-Content $files
+        Foreach ($line in $get_file_content) {
+            $file_obj = New-Object -TypeName PSObject
+            Add-Member -InputObject $file_obj -Type NoteProperty -Name $obj_name -Value $line
+            $fileline += $file_obj
+        }
+            if ($files -eq $get_hosts_file) {
+                $host_net_array += $fileline | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>Host File Info</h3>’ -Property $obj_name | Out-String
+            }  
+            if ($files -eq $get_network_file) {
+                $host_net_array += $fileline | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>Nework File Info</h3>’ -Property $obj_name | Out-String
+            }
+    }
+    $fw_state = netsh firewall show state
+    $fw_config = netsh firewall show config
+    $fw_dump = netsh dump
+    $fw_cmd_array = @($fw_state, $fw_config, $fw_dump)
+    $fw_line = @()
+    Foreach ($fw_cmd in $fw_cmd_array) {
+        $fw_cmd | Out-Null
+        Foreach ($fw_cmd_line in $fw_cmd) {
+            $cmd_obj = New-Object -TypeName PSObject
+            Add-Member -InputObject $cmd_obj -Type NoteProperty -Name HostFirewall -Value $fw_cmd_line
+            $fw_line += $cmd_obj
+        }
+    
+    }
+    $get_fw_status = $fw_line | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>Host Firewall Info</h3>’ -Property HostFirewall | Out-String  
     # Host Network Config Artifacts All results converted into html fragments
     $net_adpt = $net_adpt_result | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>Network Adapter Info</h3>’ | Out-String
     $net_cfg = $net_cfg_result | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>Network IP Info</h3>’ | Out-String
     $net_rt = $net_rt_result | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>Network Routing Info</h3>’ | Out-String
     $net_bnd = $net_bnd_result | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>Network Component Info</h3>’ | Out-String
     $net_arp = $net_arp_result | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>Arp Cache Info</h3>’ | Out-String
+    $get_smb = Get-SmbShare -ErrorAction SilentlyContinue | Select-Object Name, ShareType, Path, Description, SecurityDescriptor, EncryptData, CurrentUsers | ConvertTo-Html -As Table -PreContent ‘<h3>SMB Shares Info</h3>’ -Fragment | Out-String
     $get_dns_cache = Get-DnsClientCache | ConvertTo-Html -As Table -PreContent ‘<h3>DNS Cache Info (Status 0 equals success)</h3>’ -Fragment -Property Entry, Data, TimeToLive, Status | Out-String
+    $post_output = @($net_adpt, $net_cfg, $net_rt, $net_bnd, $net_arp, $host_net_array[0], $host_net_array[1], $get_smb, $get_dns_cache, $get_fw_status)
+    $report_array = @($ir_report_var, $create_report, $post_output)
+    IR-Artifact-Acquisition-Report-Creation($report_array)
+}
+
+function IR-Artifact-Acquisition-Process($ir_report_var) {
+    $create_report = 'procsvc'
     # Host Running Services, Process, and Scheduled Task Artifacts converted into html fragments
     $get_procc = Get-Process | ConvertTo-Html -PreContent ‘<h3>Process Info</h3>’ -Fragment -Property ProcessName, Id, Handles, PriorityClass, FileVersion, Path | Out-String
-    $get_svc = Get-Service  | ConvertTo-Html -PreContent ‘<h3>Service Info</h3>’ -Fragment -Property Name, ServiceName, DisplayName,  Status, StartType | Out-String
-    $get_schd_tsk = Get-ScheduledTask | ConvertTo-Html -As Table -PreContent ‘<h3>Service Info</h3>’ -Fragment -Property TaskName, Author, Source, Description, URI, Version, State | Out-String
-    $get_local_user = Get-LocalUser | ConvertTo-Html -As Table -PreContent ‘<h3>Local Users Info</h3>’ -Fragment -Property Name, FullName, SID, Description, LastLogon, PasswordRequired, PasswordLastSet, PasswordExpires, UserMayChangePassword, Enabled | Out-String
+    $get_svc = Get-Service  | ConvertTo-Html -PreContent ‘<h3> Service Info</h3>’ -Fragment -Property Name, ServiceName, DisplayName,  Status, StartType | Out-String
+    $get_schd_tsk = Get-ScheduledTask | ConvertTo-Html -As Table -PreContent ‘<h3>Scheduled Tasks Info</h3>’ -Fragment -Property TaskName, Author, Date, Description, URI, Version, State | Out-String
+    $get_proc_mod_out = Get-Process -ErrorAction SilentlyContinue | % { 
+    $MM = $_.MainModule | Select-Object -ExpandProperty FileName
+    $Modules = $($_.Modules | Select-Object -ExpandProperty FileName)
+    $currPID = $_.Id
+ 
+    foreach($Module in $Modules) {
+        $get_proc_mod = "" | Select-Object Name, ParentPath, ProcessName, ProcPID, CreateUTC, LastAccessUTC, LastWriteUTC
+        $get_proc_mod.Name = $Module.Substring($Module.LastIndexOf("\") + 1)
+        $get_proc_mod.ParentPath = $Module.Substring(0, $Module.LastIndexOf("\"))
+        $get_proc_mod.ProcessName = ($MM.Split('\'))[-1]
+        $get_proc_mod.ProcPID = $currPID
+        $get_proc_mod.CreateUTC = (Get-Item -Force $Module).CreationTimeUtc
+        $get_proc_mod.LastAccessUTC = (Get-Item -Force $Module).LastAccessTimeUtc
+        $get_proc_mod.LastWriteUTC = (Get-Item -Force $Module).LastWriteTimeUtc
+        $get_proc_mod
+    }
+    } | ConvertTo-Html -As Table -PreContent ‘<h3>Process and Loaded Modules Info</h3>’ -Fragment -Property ProcessName, ProcPID, Name, ParentPath, CreateUTC, LastAccessUTC, LastWriteUTC| Out-String
+    $post_output = @($get_procc, $get_proc_mod_out, $get_svc, $get_schd_tsk)
+    $report_array = @($ir_report_var, $create_report, $post_output)
+    IR-Artifact-Acquisition-Report-Creation($report_array)
+}
+
+function IR-Artifact-Acquisition-File($ir_report_var) {
+    $create_report = 'filereg'
+    $user_temp_file_array = @()
+    $user_dnld_file_array = @()
+    $user_strt_file_array = @()
+    $user_ff_brwsr_array = @()
+    $user_chrm_brwsr_array = @()
+    $user_ie_brwsr_array = @()
+    $url_match = '(htt(p|s))://([\w-]+\.)+[\w-]+(/[\w- ./?%&=]*)*?'
+    $Null = New-PSDrive -Name HKU -PSProvider Registry -Root HKEY_USERS
+    $user_paths = Get-ChildItem 'HKU:\' -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'S-1-5-21-[0-9]+-[0-9]+-[0-9]+-[0-9]+$' }
+    foreach($userpath in (Get-WmiObject win32_userprofile | Select-Object -ExpandProperty localpath)) {
+        if (Test-Path(($userpath + "\AppData\Local\Temp"))) {
+            $user_temp = Get-ChildItem -Force ($userpath + "\AppData\Local\Temp\*") | Select-Object FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes
+            $user_temp_file_array += $user_temp
+        } 
+        if (Test-Path(($userpath + "\AppData\Roaming\Microsoft\Windows\Start Menu\Programs"))) {
+            $user_strt = Get-ChildItem -Force ($userpath + "\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\*") | Select-Object FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes
+            $user_strt_file_array += $user_strt
+        }
+        if (Test-Path(($userpath + "\Downloads"))) {
+            $user_dwnld = Get-ChildItem -Force ($userpath + "\Downloads\*") | Select-Object FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes
+            $user_dnld_file_array += $user_dwnld
+        }
+        if (Test-Path(($userpath + "\AppData\Local\Google\Chrome\User Data\Default\History"))) {
+            $get_user_chrme = $userpath + "\AppData\Local\Google\Chrome\User Data\Default\History"
+            $get_cont_chrome = Get-Content -Path $get_user_chrme |Select-String -AllMatches $url_match |% {($_.Matches).Value} |Sort -Unique
+            $user_chrm_bd = $get_cont_chrome | ForEach-Object {
+            $chrome_key = $_
+            if ($chrome_key -match $Search){
+                New-Object -TypeName PSObject -Property @{
+                    UserPath = $get_user_chrme
+                    URL = $_
+                    }
+                }
+            }
+            $user_chrm_brwsr_array += $user_chrm_bd
+        }
+        if (Test-Path(($userpath + "\AppData\Roaming\Mozilla\Firefox\Profiles"))) {
+        $get_user_ff = $userpath + "\AppData\Roaming\Mozilla\Firefox\Profiles\"
+        $get_ff_prof = Get-ChildItem -Path "$get_user_ff\*.default\" -ErrorAction SilentlyContinue
+        $get_cont_ff = Get-Content $get_ff_prof\places.sqlite | Select-String -Pattern $url_match -AllMatches |Select-Object -ExpandProperty Matches |Sort -Unique
+        $user_ff_bd = $get_cont_ff.Value |ForEach-Object {
+            if ($_ -match $Search) {
+                ForEach-Object {
+                New-Object -TypeName PSObject -Property @{
+                    UserPath = $get_user_ff
+                    URL = $_
+                        }    
+                    }
+                }
+            }
+            $user_ff_brwsr_array += $user_ff_bd
+        } 
+
+    }
+    foreach($user_path in $user_paths) {
+        $get_user = ([System.Security.Principal.SecurityIdentifier] $user_path.PSChildName).Translate( [System.Security.Principal.NTAccount]) | Select -ExpandProperty Value
+        $user_path = $user_path | Select-Object -ExpandProperty PSPath
+        $ie_user_path = "$user_path\Software\Microsoft\Internet Explorer\TypedURLs"
+        if (Test-Path -Path $ie_user_path) {
+            $user_ie_url = Get-Item -Path $ie_user_path -ErrorAction SilentlyContinue | ForEach-Object {
+                $ie_key = $_
+                $ie_key.GetValueNames() | ForEach-Object {
+                    $ie_value = $ie_key.GetValue($_)
+                    if ($ie_value -match $Search) {
+                        New-Object -TypeName PSObject -Property @{
+                            User = $get_user
+                            URL = $ie_value
+                            }
+                        }
+                    }
+                }
+                $user_ie_brwsr_array += $user_ie_url
+            }
+    }
+    $get_ie_bd = $user_ie_brwsr_array | Select-Object User, URL | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>IE Browser Info</h3>’ | Out-String
+    $get_ch_bd = $user_chrm_brwsr_array | Select-Object UserPath, URL | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>Chrome Browser Info</h3>’ | Out-String
+    $get_ff_bd = $user_ff_brwsr_array | Select-Object UserPath, URL | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>FireFox Browser Info</h3>’ | Out-String
+    $get_progdata_strt = (Get-ChildItem $env:ProgramData\Microsoft\Windows\Start` Menu\Programs | Select-Object FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes | ConvertTo-Html -As Table -Fragment -PreContent '<h3>Program Data Start Directory Info</h3>' | Out-String)
+    $get_sys_temp = (Get-ChildItem $env:windir\Temp | Select-Object FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes | ConvertTo-Html -As Table -Fragment -PreContent '<h3>Window Temp Directory Info</h3>' | Out-String)
+    $get_temp = $user_temp_file_array | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>User Temp Directory Info</h3>’ | Out-String
+    $get_strt = $user_strt_file_array | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>User Start Directory Info</h3>’ | Out-String
+    $get_dnld = $user_dnld_file_array | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>User Download Directory Info</h3>’ | Out-String
+    $post_output = @($get_dnld, $get_strt, $get_progdata_strt, $get_temp, $get_sys_temp, $get_ie_bd, $get_ch_bd, $get_ff_bd)
+    $report_array = @($ir_report_var, $create_report, $post_output)
+    IR-Artifact-Acquisition-Report-Creation($report_array)
+}
+
+function IR-Artifact-Acquisition-Report-Creation($report_array) {
+    $ir_report_var = $report_array[0]
+    $create_report = $report_array[1]
+    $post_output = $report_array[2]
+    $head = @’
+    <title>Artifact Collection Report</title>
+    <style>
+        body {
+            background-color: #F5FFFA;
+            }
+        table {
+            font-family: arial, sans-serif;
+            border-collapse: collapse;
+            width: 100%;
+            }
+        td, th {
+            border: 2px solid #008147;
+            text-align: left;
+            padding: 5px;
+            }
+        tr:nth-child(even) {
+            background-color: #90EE90;
+            }
+        th {
+            background-color: #228B22;
+            color: white;
+            }
+    </style>
+‘@
+    
+    if ($create_report -eq 'index'){
+        $body = @’
+            <p>
+                <center>
+                    <h2>
+                        Host Artifact Index
+                    </h2>
+                </center>
+            <p>
+                <h3>
+                    Index Report Links
+                </h3>
+                <button onclick="document.location='Environment.html'">Environment</button>
+                <button onclick="document.location='Network.html'">Network</button>
+                <button onclick="document.location='ProcSvc.html'">Processes</button>
+                <button onclick="document.location='FileReg.html'">Files_Reg</button>
+   
+‘@
+        $postcontent = '<center><h1><h1></center>'
+        $html_report = 'index.html'
+    }
+    if ($create_report -eq 'env'){
+        $body = "<center><h2>OS Environment Artifact Report</h2></center>"
+        $postcontent = $post_output
+        $html_report = 'Environment.html'
+    }
+    if ($create_report -eq 'net'){
+        $body = "<center><h2>Network Config Artifact Report</h2></center>"
+        $postcontent = $post_output
+        $html_report = 'Network.html'
+    }
+    if ($create_report -eq 'procsvc'){
+        $body = "<center><h2>Processes and Services Artifact Report</h2></center>"
+        $postcontent = $post_output
+        $html_report = 'ProcSvc.html'
+    }
+    if ($create_report -eq 'filereg'){
+        $body = "<center><h2>Directory and Registry Artifact Report</h2></center>"
+        $postcontent = $post_output
+        $html_report = 'FileReg.html'
+    }
+    
+    $precontent = '<pre> Host: ' + $ENV:ComputerName + ' ' + $(get-date -UFormat "Date: %Y-%m-%d Time: %H:%M:%S") + ' </pre>'
+
     # HTML Parameters to create the final report
     $htmlParams = @{
         Head = $head
-        Body = "<center><h2>Host Artifact Report</h2></center>"
-        PreContent = "
-          <pre>
-              Host: $ENV:ComputerName 
-              Date: $(get-date -UFormat "%Y-%m-%d Time: %H:%M:%S")
-          </pre>"
-        PostContent = $get_proc, $get_bios, $get_os, $get_drv, $get_env, $net_adpt, $net_cfg, $net_rt, $net_bnd, $net_arp, $get_dns_cache, $get_svc, $get_procc, $get_schd_tsk, $get_local_user
+        Body = $body
+        PreContent = $precontent
+        PostContent = $postcontent
     }
-    $ir_report_full_path = $ir_report_var + "\ArtifactReport" + $(get-date -UFormat "%Y-%m-%dT%H-%M-%S") + ".html"
+    $ir_report_full_path = $ir_report_var + "\" + $html_report
     ConvertTo-HTML @htmlParams | Out-File $ir_report_full_path
     Invoke-Item $ir_report_full_path
 }
@@ -245,7 +470,7 @@ elseif ( $args[0] -in $ir_cmd_array ){
     }
 else {
     $triageType = $args[0]
-    $screen_output = "[+] {0} Triage type is unknown. Default variable: report Valid variables: image,report,both. Variable used: {1}. Script exiting." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $triageType
+    $screen_output = "[+] {0} Triage type is unknown. (Default variable: report - Valid variables: image,report,both) Variable used: {1}. Script exiting." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $triageType
     Write-Output $screen_output
     exit 
     }
@@ -274,7 +499,11 @@ if ($triageType -eq 'report') {
     $ir_report_var = $ir_setup_out[3]
     $screen_output = "[+] {0} IR Triage and Acquisition - report path: {1}" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
     Write-Output $screen_output
-    IR-Artifact-Acquisition-Report($ir_report_var)
+    IR-Artifact-Acquisition-Report-Creation($ir_report_var,'index','None')
+    IR-Artifact-Acquisition-Environment($ir_report_var)
+    IR-Artifact-Acquisition-Network($ir_report_var)
+    IR-Artifact-Acquisition-Process($ir_report_var)
+    IR-Artifact-Acquisition-File($ir_report_var)
     }
 
 $screen_output = "[+] {0} IR Triage and Acquisition is complete. Exiting the script." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")

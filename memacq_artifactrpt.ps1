@@ -483,7 +483,11 @@ if ($triageType -eq 'both') {
     $screen_output = "[+] {0} IR Triage and Acquisition - image path: {1} report path: {2}" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_image_var, $ir_report_var
     Write-Output $screen_output
     IR-Artifact-Acquisition-Image($ir_image_var)
-    IR-Artifact-Acquisition-Report($ir_report_var)
+    IR-Artifact-Acquisition-Report-Creation($ir_report_var,'index','None')
+    IR-Artifact-Acquisition-Environment($ir_report_var)
+    IR-Artifact-Acquisition-Network($ir_report_var)
+    IR-Artifact-Acquisition-Process($ir_report_var)
+    IR-Artifact-Acquisition-File($ir_report_var)
     }
 if ($triageType -eq 'image') {
     $ir_setup_out = IR-Artifact-Acquisition-setup($triageType)

@@ -87,7 +87,7 @@ function IR-Artifact-Acquisition-Setup($triageType) {
             }
     }    
     if ($viable -eq 1){
-        $ir_triage_path = $dsk_to_use + ':\Users\s839160\Documents\Automation_OpenSource\PowerShell\IRTriage'
+        $ir_triage_path = $dsk_to_use + ':\IRTriage'
         $ir_triage_path_host = $ir_triage_path + '\' + $ENV:ComputerName
         $ir_triage_path_image = $ir_triage_path_host + '\image'
         $ir_triage_path_report = $ir_triage_path_host + '\report'

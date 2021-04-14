@@ -326,7 +326,7 @@ function IR-Artifact-Acquisition-File($ir_report_var) {
         }
         if (Test-Path(($userpath + "\AppData\Roaming\Mozilla\Firefox\Profiles"))) {
         $get_user_ff = $userpath + "\AppData\Roaming\Mozilla\Firefox\Profiles\"
-        $get_ff_prof = Get-ChildItem -Path "$get_user_ff\*.default\" -ErrorAction SilentlyContinue
+        $get_ff_prof = Get-ChildItem -Path "$get_user_ff\*.default*\" -ErrorAction SilentlyContinue
         $get_cont_ff = Get-Content $get_ff_prof\places.sqlite | Select-String -Pattern $url_match -AllMatches |Select-Object -ExpandProperty Matches |Sort -Unique
         $user_ff_bd = $get_cont_ff.Value |ForEach-Object {
             if ($_ -match $Search) {

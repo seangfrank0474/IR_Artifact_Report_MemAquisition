@@ -6,10 +6,10 @@
     IR-Artifact-Acquision test to see if there is enough disk space to pull a memory image and creates html formated artifact reports. 
     It will automatically create directory structure on the disk that has the biggest space even if it is not pulling a memory image. 
 
-.PARAMETER both
+.PARAMETER all
     This will find a suitable drive with enough freespace. 
-    Create the paths where the image and the reports will be saved. 
-    Then acquire a memory image and save artifacts in an HTML report. 
+    Create the paths where the image, reports and event logs will be saved. 
+    Then acquire a memory image, save artifact data in an HTML report and specific event logs in a json format. 
 
 .PARAMETER image
     This will find a suitable drive with enough freespace. 
@@ -19,7 +19,12 @@
 .PARAMETER report
     This will find a suitable drive with enough freespace. 
     Create the path where the reports will be saved. 
-    Then run commands to collect artifacts in an HTML report. 
+    Then run commands to collect artifacts in an HTML report.
+    
+.PARAMETER event
+    This will find a suitable drive with enough freespace. 
+    Create the path where the event logs will be saved. 
+    Then run commands to collect specific event logs in a json format. 
 
 .EXAMPLE
      Need to run in elevated privileges
@@ -50,33 +55,33 @@ function IR-Artifact-Acquisition-Setup($triageType) {
     # Finding the drive with the maximum free space in the array that was created in the previous for loop. If none is found it will exit the script.
     $dsk_free_max = ($dsk_free_array_gb | measure -Maximum).Maximum
     for ($i = 0; $i -lt $dsk_id_cnt; $i++){
-        if ( ($triageType -eq 'both') -or ($triageType -eq 'image') ){
+        if ( ($triageType -eq 'all') -or ($triageType -eq 'image') ){
             if (($dsk_free_array_gb[$i] -eq $dsk_free_max) -and ($dsk_free_array_gb[$i] -ge $drv_viability)){
                 $viable = 1
                 $dsk_to_use = $dsk_id_array[$i]
-                $screen_output = "[+] {0} Found disk that meets the criteria for memory acquisition and/or reports. Disk to be used: {1} with freespace: {2} GB and phyisical memory to image: {3} GB" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $dsk_to_use, $dsk_free_max, $physical_mem_gb
+                $screen_output = "[+] {0} Found disk that meets the criteria for memory acquisition/reports/events. Disk to be used: {1} with freespace: {2} GB and phyisical memory to image: {3} GB" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $dsk_to_use, $dsk_free_max, $physical_mem_gb
                 Write-Output $screen_output
                 break
                 }
             else {
                 $viable = 0 
                 $dsk_to_use = $dsk_id_array[$i]
-                $screen_output = "[+] {0} No disk(s) that meet the criteria for memory acquisition and/or reports. Disk: {1} with freespace: {2} GB and phyisical memory to image: {3} GB" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $dsk_to_use, $dsk_free_array_gb[$i], $physical_mem_gb
+                $screen_output = "[+] {0} No disk(s) that meet the criteria for memory acquisition/reports/events. Disk: {1} with freespace: {2} GB and phyisical memory to image: {3} GB" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $dsk_to_use, $dsk_free_array_gb[$i], $physical_mem_gb
                 Write-Output $screen_output
                 }
             }
-        elseif ( $triageType -eq 'report' ){
+        elseif ( $triageType -eq 'report' -or $triageType -eq 'event' ){
             if (($dsk_free_array_gb[$i] -eq $dsk_free_max) -and ($dsk_free_array_gb[$i] -gt $physical_mem_gb)){
                 $viable = 1
                 $dsk_to_use = $dsk_id_array[$i]
-                $screen_output = "[+] {0} Found disk that meets the criteria for memory acquisition and/or reports. Disk to be used: {1} with freespace: {2} GB and phyisical memory to image: {3} GB" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $dsk_to_use, $dsk_free_max, $physical_mem_gb
+                $screen_output = "[+] {0} Found disk that meets the criteria for memory acquisition/reports/events. Disk to be used: {1} with freespace: {2} GB and phyisical memory to image: {3} GB" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $dsk_to_use, $dsk_free_max, $physical_mem_gb
                 Write-Output $screen_output
                 break
                 }
             else {
                 $viable = 0 
                 $dsk_to_use = $dsk_id_array[$i]
-                $screen_output = "[+] {0} No disk(s) that meet the criteria for memory acquisition and/or reports. Disk: {1} with freespace: {2} GB and phyisical memory to image: {3} GB" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $dsk_to_use, $dsk_free_array_gb[$i], $physical_mem_gb
+                $screen_output = "[+] {0} No disk(s) that meet the criteria for memory acquisition/reports/events. Disk: {1} with freespace: {2} GB and phyisical memory to image: {3} GB" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $dsk_to_use, $dsk_free_array_gb[$i], $physical_mem_gb
                 Write-Output $screen_output
                 }
             }
@@ -91,17 +96,19 @@ function IR-Artifact-Acquisition-Setup($triageType) {
         $ir_triage_path_host = $ir_triage_path + '\' + $ENV:ComputerName
         $ir_triage_path_image = $ir_triage_path_host + '\image'
         $ir_triage_path_report = $ir_triage_path_host + '\report'
-        $ir_triage_path_return = @($ir_triage_path_image, $ir_triage_path_report)
+        $ir_triage_path_event = $ir_triage_path_host + '\event'
+        $ir_triage_path_return = @($ir_triage_path_image, $ir_triage_path_report, $ir_triage_path_event)
         if (!(Test-Path -Path $ir_triage_path)){
             New-Item -ItemType directory -Path $ir_triage_path | Out-Null
             New-Item -ItemType directory -Path $ir_triage_path_host | Out-Null
             New-Item -ItemType directory -Path $ir_triage_path_image | Out-Null
             New-Item -ItemType directory -Path $ir_triage_path_report | Out-Null
+            New-Item -ItemType directory -Path $ir_triage_path_event | Out-Null
             $screen_output = "[+] {0} IR Triage and Acquisition paths have been setup." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")
             Write-Output $screen_output
         }
         else{
-            $screen_output = "[+] {0} IR Triage and Acquision paths have been previously setup and are ready for the acquisition process." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")
+            $screen_output = "[+] {0} IR Triage and Acquision paths have been previously setup and is ready for the acquisition process." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")
             Write-Output $screen_output
         }    
     }
@@ -114,7 +121,24 @@ function IR-Artifact-Acquisition-Setup($triageType) {
 }
 
 function IR-Artifact-Acquisition-Image($ir_image_var) {
-    Write-Output $ir_image_var
+    $script_root_path = (Get-Item $PSScriptRoot).FullName
+    $winpmem_path = $script_root_path + "\winpmem.exe"
+    if (Test-Path -Path $winpmem_path) {
+        $mem_acq_file = $ENV:ComputerName + '_mem_img_' + $(get-date -UFormat "%Y_%m_%dT%H_%M_%S") + '.raw'
+        $mem_img_full_path = $ir_image_var + '\' + $mem_acq_file
+        $winpmem_full_cmd =  'cmd.exe /C "' + $winpmem_path + ' ' + $mem_img_full_path + '"'
+        $screen_output = "[+] {0} IR Triage and Acquisition is going to acquire a memory image this will take awhile, so go get a cup off coffee. image path: {1} filename: {2}" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_image_var, $mem_acq_file
+        Write-Output $screen_output 
+        #Invoke-Command -ComputerName $Mycomputer_name -ScriptBlock {$winpmem_full_cmd}
+        $screen_output = "[+] {0} IR Triage and Acquisition memory acquisition is complete. Image can be found here: {1}" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $mem_img_full_path
+        Write-Output $screen_output   
+    }
+
+    #$screen_output = "[+] IR Triage and Acquisition is going to acquire a memory image this will take awhile so go get a cup off coffee." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $triageType
+    #Write-Output $screen_output
+    #Invoke-Command -ComputerName $Mycomputer_name -ScriptBlock {cmd.exe /C "C:\temp\winpmem.exe $Mycomputer_name.raw" } -Credential $MySecureCreds
+#$screen_output = "[+] {0} Triage type is unknown. (Default variable: report - Valid variables: image,report,both) Variable used: {1}. Script exiting." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $triageType
+#    Write-Output $screen_output
 }
 
 function IR-Artifact-Acquisition-Environment($ir_report_var) {  
@@ -297,6 +321,16 @@ function IR-Artifact-Acquisition-File($ir_report_var) {
     $url_match = '(htt(p|s))://([\w-]+\.)+[\w-]+(/[\w- ./?%&=]*)*?'
     $Null = New-PSDrive -Name HKU -PSProvider Registry -Root HKEY_USERS
     $user_paths = Get-ChildItem 'HKU:\' -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'S-1-5-21-[0-9]+-[0-9]+-[0-9]+-[0-9]+$' }
+    $auto_run_out = @()
+    $auto_run_reg_array = @("\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer\Run", "\Software\Microsoft\Windows\CurrentVersion\Run", "\Software\Microsoft\Windows\CurrentVersion\RunOnce", "\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders", "\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\User` Shell` Folders", "\Software\Microsoft\Windows\CurrentVersion\RunServicesOnce", "\Software\Microsoft\Windows\CurrentVersion\RunServices", "\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer\Run")
+    foreach ($reg_path in $auto_run_reg_array) {
+        if (Test-Path -Path Registry::HKEY_LOCAL_MACHINE$reg_path){ 
+            $precont_reg = '<h3>Auto Run Hive "' + $reg_path + '" Info</h3>'
+            $auto_run_hive = Get-ItemProperty -Path HKLM:$reg_path | Select-Object * -ExcludeProperty PSPath, PSChildName, PSProvider, PSDrive
+            $auto_run_out += $auto_run_hive
+            }
+
+    }
     foreach($userpath in (Get-WmiObject win32_userprofile | Select-Object -ExpandProperty localpath)) {
         if (Test-Path(($userpath + "\AppData\Local\Temp"))) {
             $user_temp = Get-ChildItem -Force ($userpath + "\AppData\Local\Temp\*") | Select-Object FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes
@@ -362,6 +396,7 @@ function IR-Artifact-Acquisition-File($ir_report_var) {
                 $user_ie_brwsr_array += $user_ie_url
             }
     }
+    $get_auto_run = $auto_run_out | Convertto-html -As List -Fragment -PreContent '<h3>Auto Run Hive Info</h3>' | Out-String
     $get_ie_bd = $user_ie_brwsr_array | Select-Object User, URL | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>IE Browser Info</h3>’ | Out-String
     $get_ch_bd = $user_chrm_brwsr_array | Select-Object UserPath, URL | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>Chrome Browser Info</h3>’ | Out-String
     $get_ff_bd = $user_ff_brwsr_array | Select-Object UserPath, URL | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>FireFox Browser Info</h3>’ | Out-String
@@ -370,9 +405,40 @@ function IR-Artifact-Acquisition-File($ir_report_var) {
     $get_temp = $user_temp_file_array | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>User Temp Directory Info</h3>’ | Out-String
     $get_strt = $user_strt_file_array | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>User Start Directory Info</h3>’ | Out-String
     $get_dnld = $user_dnld_file_array | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>User Download Directory Info</h3>’ | Out-String
-    $post_output = @($get_dnld, $get_strt, $get_progdata_strt, $get_temp, $get_sys_temp, $get_ie_bd, $get_ch_bd, $get_ff_bd)
+    $post_output = @($get_auto_run, $get_dnld, $get_strt, $get_progdata_strt, $get_temp, $get_sys_temp, $get_ie_bd, $get_ch_bd, $get_ff_bd)
     $report_array = @($ir_report_var, $create_report, $post_output)
     IR-Artifact-Acquisition-Report-Creation($report_array)
+}
+
+function IR-Artifact-Acquisition-EventLogs($ir_event_var){
+    $log_array = @("Security","System","Windows Powershell")
+    $three_days = (Get-Date) - (New-TimeSpan -Day 3)
+    foreach ($log in $log_array) {
+        if ($log -eq "Security"){
+            $evntid_array = @(1102, 2004, 2005, 4616, 4624, 4625, 4634, 4648, 4657, 4663, 4688, 4697, 4698, 4699, 4700, 4701, 4702, 4719, 4720, 4722, 4723, 4725, 4728, 4732, 4735, 4737, 4738, 4740, 4755, 4756, 4767, 4772, 4777, 4782, 4946, 4947, 4950, 4954, 4964, 5025, 5031, 5140, 5152, 5153, 5155, 5157, 5447)
+            $event_logs_3d = $ir_event_var + "\Security3d.json"
+            }
+        if ($log -eq "System"){
+            $evntid_array = @(7045, 7040)
+            $event_logs_3d = $ir_event_var + "\System3d.json"
+            }
+        if ($log -eq "Windows Powershell"){
+            $evntid_array = @(400, 500)
+            $event_logs_3d = $ir_event_var + "\WinPwrShell3d.json"
+            }
+        $get_sec_events = (Get-WinEvent -LogName $log -ErrorAction SilentlyContinue | ?{($_.TimeCreated -ge $three_days) -and ($_.Id -in ($evntid_array))} | Select-Object TimeCreated, LogName, Id, MachineName, UserId, KeywordsDisplayNames, Message )
+        $hash_table_event = $get_sec_events | ForEach-Object -Process {
+                    New-Object -TypeName PSCustomObject -Property ([ordered]@{
+                        'TimeCreated' = $_.TimeCreated 
+                        'LogName' = $_.LogName -join ','
+                        'EventId' = $_.Id -join ','
+                        'MachineName' = $_.MachineName -join ','
+                        'UserId' = $_.UserId -join ','
+                        'Keyword' = $_.KeywordsDisplayNames -join ','
+                        'Message' = $_.Message -join ','
+                         })}
+        $hash_table_event | ConvertTo-Json -Depth 100 | Out-File $event_logs_3d
+    }
 }
 
 function IR-Artifact-Acquisition-Report-Creation($report_array) {
@@ -461,7 +527,7 @@ function IR-Artifact-Acquisition-Report-Creation($report_array) {
     Invoke-Item $ir_report_full_path
 }
 
-$ir_cmd_array = @('both', 'image', 'report')
+$ir_cmd_array = @('all', 'event', 'image', 'report')
 if ( $args.count -eq 0 ){
     $triageType = 'report'
     }
@@ -475,12 +541,13 @@ else {
     exit 
     }
 
-if ($triageType -eq 'both') {
+if ($triageType -eq 'all') {
     $ir_setup_out = IR-Artifact-Acquisition-setup($triageType)
     Write-Output $ir_setup_out[0..1]
     $ir_image_var = $ir_setup_out[2]
     $ir_report_var = $ir_setup_out[3]
-    $screen_output = "[+] {0} IR Triage and Acquisition - image path: {1} report path: {2}" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_image_var, $ir_report_var
+    $ir_event_var = $ir_setup_out[4]
+    $screen_output = "[+] {0} IR Triage and Acquisition - image path: {1} report path: {2} event path: {3}" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_image_var, $ir_report_var, $ir_event_var
     Write-Output $screen_output
     IR-Artifact-Acquisition-Image($ir_image_var)
     IR-Artifact-Acquisition-Report-Creation($ir_report_var,'index','None')
@@ -488,6 +555,7 @@ if ($triageType -eq 'both') {
     IR-Artifact-Acquisition-Network($ir_report_var)
     IR-Artifact-Acquisition-Process($ir_report_var)
     IR-Artifact-Acquisition-File($ir_report_var)
+    IR-Artifact-Acquisition-EventLogs($ir_event_var){}
     }
 if ($triageType -eq 'image') {
     $ir_setup_out = IR-Artifact-Acquisition-setup($triageType)
@@ -509,6 +577,13 @@ if ($triageType -eq 'report') {
     IR-Artifact-Acquisition-Process($ir_report_var)
     IR-Artifact-Acquisition-File($ir_report_var)
     }
-
+if ($triageType -eq 'event') {
+    $ir_setup_out = IR-Artifact-Acquisition-setup($triageType)
+    Write-Output $ir_setup_out[0..1]
+    $ir_event_var = $ir_setup_out[4]
+    $screen_output = "[+] {0} IR Triage and Acquisition - event path: {1}" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_event_var
+    Write-Output $screen_output
+    IR-Artifact-Acquisition-EventLogs($ir_event_var)
+    }
 $screen_output = "[+] {0} IR Triage and Acquisition is complete. Exiting the script." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")
 Write-Output $screen_output

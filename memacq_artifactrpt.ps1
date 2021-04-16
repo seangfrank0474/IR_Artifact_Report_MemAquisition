@@ -133,12 +133,6 @@ function IR-Artifact-Acquisition-Image($ir_image_var) {
         $screen_output = "[+] {0} IR Triage and Acquisition memory acquisition is complete. Image can be found here: {1}" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $mem_img_full_path
         Write-Output $screen_output   
     }
-
-    #$screen_output = "[+] IR Triage and Acquisition is going to acquire a memory image this will take awhile so go get a cup off coffee." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $triageType
-    #Write-Output $screen_output
-    #Invoke-Command -ComputerName $Mycomputer_name -ScriptBlock {cmd.exe /C "C:\temp\winpmem.exe $Mycomputer_name.raw" } -Credential $MySecureCreds
-#$screen_output = "[+] {0} Triage type is unknown. (Default variable: report - Valid variables: image,report,both) Variable used: {1}. Script exiting." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $triageType
-#    Write-Output $screen_output
 }
 
 function IR-Artifact-Acquisition-Environment($ir_report_var) {  

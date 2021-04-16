@@ -298,7 +298,7 @@ function IR-Artifact-Acquisition-Network($ir_report_var) {
 function IR-Artifact-Acquisition-Process($ir_report_var) {
     $create_report = 'procsvc'
     # Host Running Services, Process, and Scheduled Task Artifacts converted into html fragments
-    $get_procc = Get-Process | ConvertTo-Html -PreContent ‘<h3>Process Info</h3>’ -Fragment -Property ProcessName, Id, Handles, PriorityClass, FileVersion, Path | Out-String
+    $get_procc = Get-Process | Sort-Object -Property CreateUtc| ConvertTo-Html -PreContent ‘<h3>Process Info</h3>’ -Fragment -Property ProcessName, Id, Handles, PriorityClass, FileVersion, Path | Out-String
     $get_svc = Get-Service  | ConvertTo-Html -PreContent ‘<h3> Service Info</h3>’ -Fragment -Property Name, ServiceName, DisplayName,  Status, StartType | Out-String
     $get_schd_tsk = Get-ScheduledTask | ConvertTo-Html -As Table -PreContent ‘<h3>Scheduled Tasks Info</h3>’ -Fragment -Property TaskName, Author, Date, Description, URI, Version, State | Out-String
     $get_proc_mod_out = Get-Process -ErrorAction SilentlyContinue | % { 
@@ -317,7 +317,7 @@ function IR-Artifact-Acquisition-Process($ir_report_var) {
         $get_proc_mod.LastWriteUTC = (Get-Item -Force $Module).LastWriteTimeUtc
         $get_proc_mod
     }
-    } | ConvertTo-Html -As Table -PreContent ‘<h3>Process and Loaded Modules Info</h3>’ -Fragment -Property ProcessName, ProcPID, Name, ParentPath, CreateUTC, LastAccessUTC, LastWriteUTC| Out-String
+    } | Sort-Object -Property CreationTimeUtc | ConvertTo-Html -As Table -PreContent ‘<h3>Process and Loaded Modules Info</h3>’ -Fragment -Property ProcessName, ProcPID, Name, ParentPath, CreateUTC, LastAccessUTC, LastWriteUTC| Out-String
     $post_output = @($get_procc, $get_proc_mod_out, $get_svc, $get_schd_tsk)
     $report_array = @($ir_report_var, $create_report, $post_output)
     IR-Artifact-Acquisition-Report-Creation($report_array)
@@ -346,15 +346,15 @@ function IR-Artifact-Acquisition-File($ir_report_var) {
     }
     foreach($userpath in (Get-WmiObject win32_userprofile | Select-Object -ExpandProperty localpath)) {
         if (Test-Path(($userpath + "\AppData\Local\Temp"))) {
-            $user_temp = Get-ChildItem -Force ($userpath + "\AppData\Local\Temp\*") | Select-Object FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes
+            $user_temp = Get-ChildItem -Force ($userpath + "\AppData\Local\Temp\*") | Select-Object FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes | Sort-Object -Property CreationTimeUtc
             $user_temp_file_array += $user_temp
         } 
         if (Test-Path(($userpath + "\AppData\Roaming\Microsoft\Windows\Start Menu\Programs"))) {
-            $user_strt = Get-ChildItem -Force ($userpath + "\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\*") | Select-Object FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes
+            $user_strt = Get-ChildItem -Force ($userpath + "\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\*") | Select-Object FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes | Sort-Object -Property CreationTimeUtc
             $user_strt_file_array += $user_strt
         }
         if (Test-Path(($userpath + "\Downloads"))) {
-            $user_dwnld = Get-ChildItem -Force ($userpath + "\Downloads\*") | Select-Object FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes
+            $user_dwnld = Get-ChildItem -Force ($userpath + "\Downloads\*") | Select-Object FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes | Sort-Object -Property CreationTimeUtc
             $user_dnld_file_array += $user_dwnld
         }
         if (Test-Path(($userpath + "\AppData\Local\Google\Chrome\User Data\Default\History"))) {
@@ -412,19 +412,19 @@ function IR-Artifact-Acquisition-File($ir_report_var) {
     $pref_chk = (Get-ItemProperty "hklm:\system\currentcontrolset\control\session manager\memory management\prefetchparameters").EnablePrefetcher
     if ($pref_chk -in (1,2,3)){
         $lst_pref = Get-ChildItem $env:windir\Prefetch\*.pf
-        $get_pref = $lst_pref | Select-Object -Property FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes | ConvertTo-Html -As Table -Fragment -PreContent '<h3>Windows Prefetch Info</h3>' | Out-String
+        $get_pref = $lst_pref | Select-Object -Property FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes | Sort-Object -Property CreationTimeUtc | ConvertTo-Html -As Table -Fragment -PreContent '<h3>Windows Prefetch Info</h3>' | Out-String
         }
     else { $get_pref = "No Prefetch Enabled" | ConvertTo-Html -As Table -Fragment -PreContent '<h3>Windows Prefetch Info</h3>' | Out-String}
     $get_auto_run = $auto_run_out | Convertto-html -As List -Fragment -PreContent '<h3>Auto Run Hive Info</h3>' | Out-String
     $get_ie_bd = $user_ie_brwsr_array | Select-Object User, URL | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>IE Browser Info</h3>’ | Out-String
     $get_ch_bd = $user_chrm_brwsr_array | Select-Object UserPath, URL | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>Chrome Browser Info</h3>’ | Out-String
     $get_ff_bd = $user_ff_brwsr_array | Select-Object UserPath, URL | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>FireFox Browser Info</h3>’ | Out-String
-    $get_progdata_strt = (Get-ChildItem $env:ProgramData\Microsoft\Windows\Start` Menu\Programs | Select-Object FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes | ConvertTo-Html -As Table -Fragment -PreContent '<h3>Program Data Start Directory Info</h3>' | Out-String)
-    $get_sys_temp = (Get-ChildItem $env:windir\Temp | Select-Object FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes | ConvertTo-Html -As Table -Fragment -PreContent '<h3>Window Temp Directory Info</h3>' | Out-String)
+    $get_progdata_strt = (Get-ChildItem $env:ProgramData\Microsoft\Windows\Start` Menu\Programs | Select-Object FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes | Sort-Object -Property CreationTimeUtc | ConvertTo-Html -As Table -Fragment -PreContent '<h3>Program Data Start Directory Info</h3>' | Out-String)
+    $get_sys_temp = (Get-ChildItem $env:windir\Temp | Select-Object FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes | Sort-Object -Property CreationTimeUtc | ConvertTo-Html -As Table -Fragment -PreContent '<h3>Window Temp Directory Info</h3>' | Out-String)
     $get_temp = $user_temp_file_array | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>User Temp Directory Info</h3>’ | Out-String
     $get_strt = $user_strt_file_array | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>User Start Directory Info</h3>’ | Out-String
     $get_dnld = $user_dnld_file_array | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>User Download Directory Info</h3>’ | Out-String
-    $post_output = @($get_auto_run, $get_pref, $get_dnld, $get_strt, $get_progdata_strt, $get_temp, $get_sys_temp, $get_ie_bd, $get_ch_bd, $get_ff_bd)
+    $post_output = @($get_auto_run, $get_strt, $get_progdata_strt, $get_pref, $get_temp, $get_sys_temp, $get_ie_bd, $get_ch_bd, $get_ff_bd, $get_dnld)
     $report_array = @($ir_report_var, $create_report, $post_output)
     IR-Artifact-Acquisition-Report-Creation($report_array)
 }
@@ -434,7 +434,7 @@ function IR-Artifact-Acquisition-EventLogs($ir_event_var){
     $three_days = (Get-Date) - (New-TimeSpan -Day 3)
     foreach ($log in $log_array) {
         if ($log -eq "Security"){
-            $evntid_array = @(1102, 2004, 2005, 4616, 4624, 4625, 4634, 4648, 4657, 4663, 4688, 4697, 4698, 4699, 4700, 4701, 4702, 4719, 4720, 4722, 4723, 4725, 4728, 4732, 4735, 4737, 4738, 4740, 4755, 4756, 4767, 4772, 4777, 4782, 4946, 4947, 4950, 4954, 4964, 5025, 5031, 5140, 5152, 5153, 5155, 5157, 5447)
+            $evntid_array = @(1102, 2004, 2005, 4616, 4624, 4625, 4634, 4648, 4657, 4663, 4688, 4697, 4698, 4699, 4700, 4701, 4702, 4719, 4720, 4722, 4723, 4725, 4728, 4732, 4735, 4737, 4738, 4740, 4755, 4756, 4767, 4768, 4772, 4777, 4782, 4946, 4947, 4950, 4954, 4964, 5025, 5031, 5140, 5152, 5153, 5155, 5157, 5447)
             $event_logs_3d = $ir_event_var + "\Security3d.json"
             }
         if ($log -eq "System"){

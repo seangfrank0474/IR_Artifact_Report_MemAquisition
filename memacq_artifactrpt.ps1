@@ -268,6 +268,19 @@ function IR-Artifact-Acquisition-Network($ir_report_var) {
         }
     
     }
+    $proc_net_array = @{}
+    Get-Process -IncludeUserName | ForEach-Object {
+        $proc_net_array[$_.Id] = $_
+        }
+    $net_con = Get-NetTCPConnection |
+        Select-Object LocalAddress, LocalPort, RemoteAddress,
+            RemotePort, State, CreationTime,
+            @{Name="PID";         Expression={ $_.OwningProcess }},
+            @{Name="ProcessName"; Expression={ $proc_net_array[[int]$_.OwningProcess].ProcessName }}, 
+            @{Name="UserName";    Expression={ $proc_net_array[[int]$_.OwningProcess].UserName }} |
+            Sort-Object -Property State, CreationTime
+        
+    $get_net_con = $net_con | ConvertTo-Html -As Table -Fragment -PreContent '<h3>Windows Netstat Info</h3>' | Out-String
     $get_fw_status = $fw_line | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>Host Firewall Info</h3>’ -Property HostFirewall | Out-String  
     # Host Network Config Artifacts All results converted into html fragments
     $net_adpt = $net_adpt_result | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>Network Adapter Info</h3>’ | Out-String
@@ -277,7 +290,7 @@ function IR-Artifact-Acquisition-Network($ir_report_var) {
     $net_arp = $net_arp_result | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>Arp Cache Info</h3>’ | Out-String
     $get_smb = Get-SmbShare -ErrorAction SilentlyContinue | Select-Object Name, ShareType, Path, Description, SecurityDescriptor, EncryptData, CurrentUsers | ConvertTo-Html -As Table -PreContent ‘<h3>SMB Shares Info</h3>’ -Fragment | Out-String
     $get_dns_cache = Get-DnsClientCache | ConvertTo-Html -As Table -PreContent ‘<h3>DNS Cache Info (Status 0 equals success)</h3>’ -Fragment -Property Entry, Data, TimeToLive, Status | Out-String
-    $post_output = @($net_adpt, $net_cfg, $net_rt, $net_bnd, $net_arp, $host_net_array[0], $host_net_array[1], $get_smb, $get_dns_cache, $get_fw_status)
+    $post_output = @($net_adpt, $net_cfg, $net_bnd, $get_fw_status, $host_net_array[0], $host_net_array[1], $net_rt, $net_arp, $get_smb, $get_dns_cache, $get_net_con)
     $report_array = @($ir_report_var, $create_report, $post_output)
     IR-Artifact-Acquisition-Report-Creation($report_array)
 }

@@ -129,7 +129,7 @@ function IR-Artifact-Acquisition-Image($ir_image_var) {
         $winpmem_full_cmd =  'cmd.exe /C "' + $winpmem_path + ' ' + $mem_img_full_path + '"'
         $screen_output = "[+] {0} IR Triage and Acquisition is going to acquire a memory image this will take awhile, so go get a cup off coffee. image path: {1} filename: {2}" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_image_var, $mem_acq_file
         Write-Output $screen_output 
-        #Invoke-Command -ComputerName $Mycomputer_name -ScriptBlock {$winpmem_full_cmd}
+        #Invoke-Command -ComputerName $ENV:ComputerName -ScriptBlock {$winpmem_full_cmd}
         $screen_output = "[+] {0} IR Triage and Acquisition memory acquisition is complete. Image can be found here: {1}" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $mem_img_full_path
         Write-Output $screen_output   
     }

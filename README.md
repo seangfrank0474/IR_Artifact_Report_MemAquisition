@@ -2,7 +2,10 @@
 
 Currently it defaults to report if no argument is given.
 The report and the events log collection are working still need to test the memory acquisition.
-Have not tested the memory acquisition portion yet it is there but commented out (use at your own risk)
+Image function has been tested on Windows 10 and Windows 2016 Server with the current version of winpmem.exe
+
+WinPMem
+https://github.com/Velocidex/WinPmem/releases/tag/v4.0.rc1
 
 <pre>
   Use:

@@ -90,7 +90,7 @@ function IR-Artifact-Acquisition-Setup($triageType) {
         $ir_triage_path_image = $ir_triage_path_host + '\image'
         $ir_triage_path_report = $ir_triage_path_host + '\report'
         $ir_triage_path_event = $ir_triage_path_host + '\event'
-        $ir_triage_path_return = @($ir_triage_path_image, $ir_triage_path_report, $ir_triage_path_event)
+        $ir_triage_path_return = @($ir_triage_path_image, $ir_triage_path_report, $ir_triage_path_event, $ir_triage_path_host, $ir_triage_path)
         if (!(Test-Path -Path $ir_triage_path)){
             New-Item -ItemType directory -Path $ir_triage_path | Out-Null
             New-Item -ItemType directory -Path $ir_triage_path_host | Out-Null
@@ -590,5 +590,16 @@ if ($triageType -eq 'event') {
     Write-Output $screen_output
     IR-Artifact-Acquisition-EventLogs($ir_event_var)
     }
+
+$ir_trgt_comp = $ir_setup_out[5] + "\*"
+$ir_trgt_zip = $ir_setup_out[6] + "\" + $ENV:ComputerName + "_" + $(get-date -UFormat "%Y_%m_%dT%H_%M_%S") + ".zip" 
+$ir_compress_o = @{
+    Path= $ir_trgt_comp
+    CompressionLevel = "Optimal"
+    DestinationPath = $ir_trgt_zip
+    }
+Compress-Archive @ir_compress_o
+$screen_output = "[+] {0} IR Triage and Acquisition has compressed all findings - compressed path: ({1})." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_trgt_zip
+Write-Output $screen_output
 $screen_output = "[+] {0} IR Triage and Acquisition is complete. Exiting the script." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")
 Write-Output $screen_output

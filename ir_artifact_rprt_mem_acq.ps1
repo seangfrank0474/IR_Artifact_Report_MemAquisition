@@ -117,21 +117,15 @@ function IR-Artifact-Acquisition-Image($ir_image_var) {
     $script_root_path = (Get-Item $PSScriptRoot).FullName
     $winpmem_path = $script_root_path + "\winpmem.exe"
     if (Test-Path -Path $winpmem_path) {
+        $cmdlocation = ($env:SystemRoot + "\System32\cmd.exe")
         $mem_acq_file = $ENV:ComputerName + '_mem_img_' + $(get-date -UFormat "%Y_%m_%dT%H_%M_%S") + '.raw'
         $mem_img_full_path = $ir_image_var + '\' + $mem_acq_file
-        $winpmem_full_cmd =  'cmd.exe /C "' + $winpmem_path + ' ' + $mem_img_full_path + '"'
         $screen_output = "[+] {0} IR Triage and Acquisition is going to acquire a memory image this will take awhile, so go get a cup off coffee. image path: {1} filename: {2}" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_image_var, $mem_acq_file
         Write-Output $screen_output 
-        Invoke-Command -ComputerName $ENV:ComputerName -ScriptBlock {$winpmem_full_cmd}
+        & $cmdlocation /c "$winpmem_path $mem_img_full_path" | Out-Null
         $screen_output = "[+] {0} IR Triage and Acquisition memory acquisition is complete. Image can be found here: {1}" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $mem_img_full_path
         Write-Output $screen_output   
     }
-    # Cruft
-    #$screen_output = "[+] IR Triage and Acquisition is going to acquire a memory image this will take awhile so go get a cup off coffee." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $triageType
-    #Write-Output $screen_output
-    #Invoke-Command -ComputerName $Mycomputer_name -ScriptBlock {cmd.exe /C "C:\temp\winpmem.exe $Mycomputer_name.raw" } -Credential $MySecureCreds
-    #$screen_output = "[+] {0} Triage type is unknown. (Default variable: report - Valid variables: image,report,both) Variable used: {1}. Script exiting." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $triageType
-    #Write-Output $screen_output
 }
 # Function call to create the HTML fragments that will be written to the \IRTriage\<hostname>\report\Environment.html
 function IR-Artifact-Acquisition-Environment($ir_report_var) {  

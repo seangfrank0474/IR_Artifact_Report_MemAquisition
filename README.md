@@ -7,6 +7,9 @@ Image function has been tested on Windows 10 and Windows 2016 Server with the cu
 WinPMem
 https://github.com/Velocidex/WinPmem/releases/tag/v4.0.rc1
 
+Using 7-Zip to compress all the output (7za.exe)
+https://www.7-zip.org/download.html
+
 <pre>
   Use:
   default - No argument - Runs the artifact report

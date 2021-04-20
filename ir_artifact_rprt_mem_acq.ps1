@@ -298,9 +298,9 @@ function IR-Artifact-Acquisition-Process($ir_report_var) {
         $get_proc_mod.ParentPath = $Module.Substring(0, $Module.LastIndexOf("\"))
         $get_proc_mod.ProcessName = ($MM.Split('\'))[-1]
         $get_proc_mod.ProcPID = $currPID
-        $get_proc_mod.CreateUTC = (Get-Item -Force $Module).CreationTimeUtc
-        $get_proc_mod.LastAccessUTC = (Get-Item -Force $Module).LastAccessTimeUtc
-        $get_proc_mod.LastWriteUTC = (Get-Item -Force $Module).LastWriteTimeUtc
+        $get_proc_mod.CreateUTC = (Get-Item -Force $Module -ErrorAction SilentlyContinue).CreationTimeUtc
+        $get_proc_mod.LastAccessUTC = (Get-Item -Force $Module -ErrorAction SilentlyContinue).LastAccessTimeUtc
+        $get_proc_mod.LastWriteUTC = (Get-Item -Force $Module -ErrorAction SilentlyContinue).LastWriteTimeUtc
         $get_proc_mod
     }
     } | Sort-Object -Property CreationTimeUtc | ConvertTo-Html -As Table -PreContent ‘<h3>Process and Loaded Modules Info</h3>’ -Fragment -Property ProcessName, ProcPID, Name, ParentPath, CreateUTC, LastAccessUTC, LastWriteUTC| Out-String

@@ -153,64 +153,79 @@ function IR-Artifact-Acquisition-Network($ir_report_var) {
     $create_report = 'net'
     # Host Network Config Artifacts
     # Host Network Config Artifacts Arrays
-    $net_adpt_result = @()
-    $net_cfg_result = @()
-    $net_rt_result = @()
-    $net_bnd_result = @()
-    $net_arp_result = @()
-    # Host Network Config Artifacts Properties
-    $get_net_adpt = (Get-NetAdapter | Select-Object -Property Name, ifIndex, InterfaceDescription, MacAddress, Status)
-    $get_net_cfg = (Get-NetIPConfiguration | Select-Object -Property InterfaceIndex, InterfaceAlias,Ipv4Address, DNSServer, DefaultIPGateway)
-    $get_net_rt = (Get-NetRoute | Select-Object -Property ifIndex, DestinationPrefix, NextHop, RouteMetric)
-    $get_net_bnd = (Get-NetAdapterBinding | Select-Object -Property Name, DisplayName, ComponentID, Enables)
-    $get_net_arp = (Get-NetNeighbor | Select-Object -Property ifIndex, IPAddress, LinkLayerAddress, State)
-    # Host Network Config Artifacts counts to iterate over for loop 
-    $net_adpt_cnt = ($get_net_adpt.ifIndex | measure).Count
-    $net_cfg_cnt = ($get_net_cfg.InterfaceIndex | measure).Count
-    $net_rt_cnt = ($get_net_rt.ifIndex | measure).Count
-    $net_bnd_cnt = ($get_net_bnd.Name | measure).Count
-    $net_arp_cnt = ($get_net_arp.ifIndex | measure).Count
-    # Host Network Config Artifacts for loops to generate the result arrays
-    for ($i = 0; $i -lt $net_adpt_cnt; $i++){ 
-        $net_adpt_result += New-Object -TypeName PSCustomObject -Property ([ordered]@{
-            'Name' = $get_net_adpt[$i].Name
-            'Interface' = $get_net_adpt[$i].ifIndex -join ','
-            'Description' = $get_net_adpt[$i].InterfaceDescription -join ','
-            'MacAddress' = $get_net_adpt[$i].MacAddress -join ','
-            'Status' = $get_net_adpt[$i].Status -join ','
-             })
-    }
-    for ($i = 0; $i -lt $net_cfg_cnt; $i++){ 
-        $net_cfg_result += New-Object -TypeName PSCustomObject -Property ([ordered]@{
-            'Name' = $get_net_cfg[$i].InterfaceAlias
-            'Interface' = $get_net_cfg[$i].InterfaceIndex -join ','
-            'IPAdress' = $get_net_cfg[$i].Ipv4Address -join ','
-            'DNSServer' = ($get_net_cfg[$i].DNSServer | Select-Object -ExpandProperty ServerAddresses) -join ','
-            })
-    }
-    for ($i = 0; $i -lt $net_rt_cnt; $i++){ 
-        $net_rt_result += New-Object -TypeName PSCustomObject -Property ([ordered]@{
-            'Interface' = $get_net_rt[$i].ifIndex 
-            'DestinationPrefix' = $get_net_rt[$i].DestinationPrefix -join ','
-            'NextHop' = $get_net_rt[$i].NextHop -join ','
-            'RouteMetric' = $get_net_rt[$i].RouteMetric -join ','
-            })
-    }
-    for ($i = 0; $i -lt $net_bnd_cnt; $i++){ 
-        $net_bnd_result += New-Object -TypeName PSCustomObject -Property ([ordered]@{
-            'Name' = $get_net_bnd[$i].Name 
-            'DisplayName' = $get_net_bnd[$i].DisplayName -join ','
-            'ComponentID' = $get_net_bnd[$i].ComponentID -join ','
-            'Status' = $get_net_bnd[$i].Enables -join ','
-            })
-    }
-    for ($i = 0; $i -lt $net_arp_cnt; $i++){ 
-        $net_arp_result += New-Object -TypeName PSCustomObject -Property ([ordered]@{
-            'Interface' = $get_net_arp[$i].ifIndex 
-            'IPAddress' = $get_net_arp[$i].IPAddress -join ','
-            'MACAddress' = $get_net_arp[$i].LinkLayerAddress -join ','
-            'State' = $get_net_arp[$i].State -join ','
-            })
+    foreach ($cmd_array in ("Get-NetAdapter","Get-NetIPConfiguration","Get-NetRoute","Get-NetAdapterBinding","Get-NetNeighbor")){
+        switch -casesensitive ($cmd_array) {
+            "Get-NetAdapter" { 
+                $get_net_adpt = (Get-NetAdapter | Select-Object -Property Name, ifIndex, InterfaceDescription, MacAddress, Status)
+                $net_cnt = ($get_net_adpt.ifIndex | measure).Count 
+                $net_adpt_result = @()
+                }
+            "Get-NetIPConfiguration" { 
+                $get_net_cfg = (Get-NetIPConfiguration | Select-Object -Property InterfaceIndex, InterfaceAlias,Ipv4Address, DNSServer, DefaultIPGateway)
+                $net_cnt = ($get_net_cfg.InterfaceIndex | measure).Count
+                $net_cfg_result = @()
+                }
+            "Get-NetRoute" { 
+                $get_net_rt = (Get-NetRoute | Select-Object -Property ifIndex, DestinationPrefix, NextHop, RouteMetric)
+                $net_cnt = ($get_net_rt.ifIndex | measure).Count 
+                $net_rt_result = @()
+                }
+            "Get-NetAdapterBinding" { 
+                $get_net_bnd = (Get-NetAdapterBinding | Select-Object -Property Name, DisplayName, ComponentID, Enables)
+                $net_cnt = ($get_net_bnd.Name | measure).Count
+                $net_bnd_result = @()
+                }
+            "Get-NetNeighbor" { 
+                $get_net_arp = (Get-NetNeighbor | Select-Object -Property ifIndex, IPAddress, LinkLayerAddress, State)
+                $net_cnt = ($get_net_arp.ifIndex | measure).Count 
+                $net_arp_result = @()
+                }
+        } 
+        for ($i = 0; $i -lt $net_cnt; $i++){
+            switch -casesensitive ($cmd_array) {
+                "Get-NetAdapter" { 
+                    $net_adpt_result += New-Object -TypeName PSCustomObject -Property ([ordered]@{
+                        'Name' = $get_net_adpt[$i].Name
+                        'Interface' = $get_net_adpt[$i].ifIndex -join ','
+                        'Description' = $get_net_adpt[$i].InterfaceDescription -join ','
+                        'MacAddress' = $get_net_adpt[$i].MacAddress -join ','
+                        'Status' = $get_net_adpt[$i].Status -join ','
+                        })
+                    }
+                "Get-NetIPConfiguration" { 
+                    $net_cfg_result += New-Object -TypeName PSCustomObject -Property ([ordered]@{
+                        'Name' = $get_net_cfg[$i].InterfaceAlias
+                        'Interface' = $get_net_cfg[$i].InterfaceIndex -join ','
+                        'IPAdress' = $get_net_cfg[$i].Ipv4Address -join ','
+                        'DNSServer' = ($get_net_cfg[$i].DNSServer | Select-Object -ExpandProperty ServerAddresses) -join ','
+                        })
+                    }
+                "Get-NetRoute" { 
+                    $net_rt_result += New-Object -TypeName PSCustomObject -Property ([ordered]@{
+                        'Interface' = $get_net_rt[$i].ifIndex 
+                        'DestinationPrefix' = $get_net_rt[$i].DestinationPrefix -join ','
+                        'NextHop' = $get_net_rt[$i].NextHop -join ','
+                        'RouteMetric' = $get_net_rt[$i].RouteMetric -join ','
+                        })
+                    }
+                "Get-NetAdapterBinding" { 
+                    $net_bnd_result += New-Object -TypeName PSCustomObject -Property ([ordered]@{
+                        'Name' = $get_net_bnd[$i].Name 
+                        'DisplayName' = $get_net_bnd[$i].DisplayName -join ','
+                        'ComponentID' = $get_net_bnd[$i].ComponentID -join ','
+                        'Status' = $get_net_bnd[$i].Enables -join ','
+                        })
+                    }
+                "Get-NetNeighbor" { 
+                    $net_arp_result += New-Object -TypeName PSCustomObject -Property ([ordered]@{
+                        'Interface' = $get_net_arp[$i].ifIndex 
+                        'IPAddress' = $get_net_arp[$i].IPAddress -join ','
+                        'MACAddress' = $get_net_arp[$i].LinkLayerAddress -join ','
+                        'State' = $get_net_arp[$i].State -join ','
+                        })
+                }
+            }
+        }   
     }
     $files_array = @()
     $fileline = @()

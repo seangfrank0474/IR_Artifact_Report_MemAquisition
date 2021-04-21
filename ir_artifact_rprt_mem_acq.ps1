@@ -259,15 +259,22 @@ function IR-Artifact-Acquisition-Network($ir_report_var) {
     Get-Process -IncludeUserName | ForEach-Object {
         $proc_net_array[$_.Id] = $_
         }
-    $net_con = Get-NetTCPConnection |
+    $net_con_tcp = Get-NetTCPConnection |
         Select-Object LocalAddress, LocalPort, RemoteAddress,
             RemotePort, State, CreationTime,
             @{Name="PID";         Expression={ $_.OwningProcess }},
             @{Name="ProcessName"; Expression={ $proc_net_array[[int]$_.OwningProcess].ProcessName }}, 
             @{Name="UserName";    Expression={ $proc_net_array[[int]$_.OwningProcess].UserName }} |
             Sort-Object -Property State, CreationTime
+    $net_con_udp = Get-NetUDPEndpoint |
+    Select-Object LocalAddress, LocalPort, CreationTime,
+        @{Name="PID";         Expression={ $_.OwningProcess }},
+        @{Name="ProcessName"; Expression={ $proc_net_array[[int]$_.OwningProcess].ProcessName }}, 
+        @{Name="UserName";    Expression={ $proc_net_array[[int]$_.OwningProcess].UserName }} |
+        Sort-Object -Property CreationTime
     # Host Network Config Artifacts All results converted into html fragments    
-    $get_net_con = $net_con | ConvertTo-Html -As Table -Fragment -PreContent '<h3>Windows Netstat Info</h3>' | Out-String
+    $get_net_con_tcp = $net_con_tcp | ConvertTo-Html -As Table -Fragment -PreContent '<h3>Windows Netstat TCP Info</h3>' | Out-String
+    $get_net_con_udp = $net_con_udp | ConvertTo-Html -As Table -Fragment -PreContent '<h3>Windows Netstat UDP Info</h3>' | Out-String
     $get_fw_status = $fw_line | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>Host Firewall Info</h3>’ -Property HostFirewall | Out-String  
     $net_adpt = $net_adpt_result | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>Network Adapter Info</h3>’ | Out-String
     $net_cfg = $net_cfg_result | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>Network IP Info</h3>’ | Out-String
@@ -276,7 +283,7 @@ function IR-Artifact-Acquisition-Network($ir_report_var) {
     $net_arp = $net_arp_result | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>Arp Cache Info</h3>’ | Out-String
     $get_smb = Get-SmbShare -ErrorAction SilentlyContinue | Select-Object Name, ShareType, Path, Description, SecurityDescriptor, EncryptData, CurrentUsers | ConvertTo-Html -As Table -PreContent ‘<h3>SMB Shares Info</h3>’ -Fragment | Out-String
     $get_dns_cache = Get-DnsClientCache | ConvertTo-Html -As Table -PreContent ‘<h3>DNS Cache Info (Status 0 equals success)</h3>’ -Fragment -Property Entry, Data, TimeToLive, Status | Out-String
-    $post_output = @($net_adpt, $net_cfg, $net_bnd, $get_fw_status, $host_net_array[0], $host_net_array[1], $net_rt, $net_arp, $get_smb, $get_dns_cache, $get_net_con)
+    $post_output = @($net_adpt, $net_cfg, $net_bnd, $get_fw_status, $host_net_array[0], $host_net_array[1], $net_rt, $net_arp, $get_smb, $get_dns_cache, $get_net_con_tcp, $get_net_con_udp)
     $report_array = @($ir_report_var, $create_report, $post_output)
     IR-Artifact-Acquisition-Report-Creation($report_array)
 }
@@ -529,7 +536,7 @@ function IR-Artifact-Acquisition-Report-Creation($report_array) {
     }
     $ir_report_full_path = $ir_report_var + "\" + $html_report
     ConvertTo-HTML @htmlParams | Out-File $ir_report_full_path
-    #Invoke-Item $ir_report_full_path
+    Invoke-Item $ir_report_full_path
 }
 # Argument Array and check setup
 $ir_cmd_array = @('all', 'event', 'image', 'report')

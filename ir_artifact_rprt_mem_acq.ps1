@@ -551,7 +551,7 @@ function IR-Artifact-Acquisition-Report-Creation($report_array) {
     }
     $ir_report_full_path = $ir_report_var + "\" + $html_report
     ConvertTo-HTML @htmlParams | Out-File $ir_report_full_path
-    Invoke-Item $ir_report_full_path
+    #Invoke-Item $ir_report_full_path
 }
 # Argument Array and check setup
 $ir_cmd_array = @('all', 'event', 'image', 'report')

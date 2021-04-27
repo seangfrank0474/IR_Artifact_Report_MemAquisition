@@ -116,19 +116,7 @@ function IR-Artifact-Acquisition-Setup($triageType) {
 
 # Function call to create a raw memory image that will be written to the \IRTriage\<hostname>\image\<hostname>_mem_img_<date>.raw
 function IR-Artifact-Acquisition-Image($ir_image_var) {
-    if (Get-Item $PSScriptRoot) {
-        $script_root_path = (Get-Item $PSScriptRoot).FullName
-    }
-    elseif (Test-Path -Path $env:windir\Temp\irts\IR_Artifact_Report_MemAquisition-main) {
-        $script_root_path = $env:windir + "\Temp\irts\IR_Artifact_Report_MemAquisition-main"
-    }
-    elseif (Test-Path -Path .\) {
-        $script_root_path = "."
-    }
-    $winpmem_path = $script_root_path + "\winpmem.exe"
-    #$env:windir\Temp\irts\IR_Artifact_Report_MemAquisition-main
-    #$script_root_path = (Get-Item $PSScriptRoot).FullName
-    #$winpmem_path = $script_root_path + "\winpmem.exe"
+    $winpmem_path = ".\winpmem.exe"
     if (Test-Path -Path $winpmem_path) {
         $cmdlocation = ($env:SystemRoot + "\System32\cmd.exe")
         $mem_acq_file = $ENV:ComputerName + '_mem_img_' + $(get-date -UFormat "%Y_%m_%dT%H_%M_%S") + '.raw'
@@ -552,7 +540,7 @@ function IR-Artifact-Acquisition-Report-Creation($report_array) {
 # Argument Array and check setup
 $ir_cmd_array = @('all', 'event', 'image', 'report')
 if ( $args.count -eq 0 ){
-    $triageType = 'report'
+    $triageType = 'image'
     }
 elseif ( $args[0] -in $ir_cmd_array ){ 
     $triageType = $args[0] 
@@ -613,17 +601,7 @@ if ($triageType -eq 'event') {
     IR-Artifact-Acquisition-EventLogs($ir_event_var)
     }
 
-if (Get-Item $PSScriptRoot) {
-    $script_root_path = (Get-Item $PSScriptRoot).FullName
-}
-elseif (Test-Path -Path $env:windir\Temp\irts\IR_Artifact_Report_MemAquisition-main) {
-    $script_root_path = $env:windir + "\Temp\irts\IR_Artifact_Report_MemAquisition-main"
-}
-elseif (Test-Path -Path .\) {
-    $script_root_path = "."
-}
-
-$zip_7z_path = $script_root_path + "\7za.exe"
+$zip_7z_path = ".\7za.exe"
 if (Test-Path -Path $zip_7z_path) {
     $ir_trgt_comp = $ir_setup_out[5] + "\*"
     $ir_trgt_zip = $ir_setup_out[6] + "\" + $ENV:ComputerName + "_" + $(get-date -UFormat "%Y_%m_%dT%H_%M_%S") + ".7z"
@@ -633,6 +611,5 @@ if (Test-Path -Path $zip_7z_path) {
     $screen_output = "[+] {0} IR Triage and Acquisition has compressed all findings - compressed path: ({1})." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_trgt_zip
     Write-Output $screen_output
 }
-
 $screen_output = "[+] {0} IR Triage and Acquisition is complete. Exiting the script." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")
 Write-Output $screen_output

@@ -540,7 +540,7 @@ function IR-Artifact-Acquisition-Report-Creation($report_array) {
 # Argument Array and check setup
 $ir_cmd_array = @('all', 'event', 'image', 'report')
 if ( $args.count -eq 0 ){
-    $triageType = 'image'
+    $triageType = 'report'
     }
 elseif ( $args[0] -in $ir_cmd_array ){ 
     $triageType = $args[0] 

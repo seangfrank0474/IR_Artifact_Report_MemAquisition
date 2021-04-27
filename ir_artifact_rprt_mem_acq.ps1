@@ -227,49 +227,23 @@ function IR-Artifact-Acquisition-Network($ir_report_var) {
             }
         }   
     }
-    $files_array = @()
-    $fileline = @()
-    $host_net_array = @()
+    $post_host_file = "<pre>`n None `n </pre>"
+    $post_net_file = "<pre>`n None `n </pre>"
+    $post_fw_status = "<pre>`n None `n </pre>"
     If (Get-Content $env:windir\system32\drivers\etc\hosts){
-        $get_hosts_file = $env:windir + "\system32\drivers\etc\hosts"
-        $files_array += $get_hosts_file
-        $html_prop = "Host File: " + $env:windir + "\system32\drivers\etc\hosts"
-        $obj_name = "HostFile"
-    }
+        $hosts_file = (Get-Content $env:windir\system32\drivers\etc\hosts) | Out-String
+        $post_host_file = "<pre>`n" + $hosts_file + "`n </pre>"
+        }
     If (Get-Content $env:windir\system32\drivers\etc\networks){
-        $get_network_file = $env:windir + "\system32\drivers\etc\networks"
-        $files_array += $get_network_file
-        $html_prop = "Host File: " + $env:windir + "\system32\drivers\etc\networks"
-        $obj_name = "NetworkFile"
-    }
-    Foreach ($files in $files_array) {
-        $get_file_content = Get-Content $files
-        Foreach ($line in $get_file_content) {
-            $file_obj = New-Object -TypeName PSObject
-            Add-Member -InputObject $file_obj -Type NoteProperty -Name $obj_name -Value $line
-            $fileline += $file_obj
+        $network_file = (Get-Content $env:windir\system32\drivers\etc\networks) | Out-String
+        $post_net_file = "<pre>`n" + $network_file + "`n </pre>"
         }
-            if ($files -eq $get_hosts_file) {
-                $host_net_array += $fileline | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>Host File Info</h3>’ -Property $obj_name | Out-String
-            }  
-            if ($files -eq $get_network_file) {
-                $host_net_array += $fileline | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>Nework File Info</h3>’ -Property $obj_name | Out-String
-            }
-    }
-    $fw_state = netsh firewall show state
-    $fw_config = netsh firewall show config
-    $fw_dump = netsh dump
-    $fw_cmd_array = @($fw_state, $fw_config, $fw_dump)
-    $fw_line = @()
-    Foreach ($fw_cmd in $fw_cmd_array) {
-        $fw_cmd | Out-Null
-        Foreach ($fw_cmd_line in $fw_cmd) {
-            $cmd_obj = New-Object -TypeName PSObject
-            Add-Member -InputObject $cmd_obj -Type NoteProperty -Name HostFirewall -Value $fw_cmd_line
-            $fw_line += $cmd_obj
+    If (netsh firewall show state) {
+        $fw_state = netsh firewall show state | Out-String
+        $fw_config = netsh firewall show config | Out-String
+        $fw_dump = netsh dump | Out-String
+        $post_fw_status = "<pre>`n" + $fw_state + "`n" + $fw_config + "`n" + $fw_dump + "`n </pre>"
         }
-    
-    }
     $proc_net_array = @{}
     Get-Process -IncludeUserName | ForEach-Object {
         $proc_net_array[$_.Id] = $_
@@ -290,7 +264,9 @@ function IR-Artifact-Acquisition-Network($ir_report_var) {
     # Host Network Config Artifacts All results converted into html fragments    
     $get_net_con_tcp = $net_con_tcp | ConvertTo-Html -As Table -Fragment -PreContent '<h3>Windows Netstat TCP Info</h3>' | Out-String
     $get_net_con_udp = $net_con_udp | ConvertTo-Html -As Table -Fragment -PreContent '<h3>Windows Netstat UDP Info</h3>' | Out-String
-    $get_fw_status = $fw_line | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>Host Firewall Info</h3>’ -Property HostFirewall | Out-String  
+    $get_fw_status = ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>Host Firewall Info</h3>’ -PostContent $post_fw_status | Out-String
+    $get_host_file = ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>Host File Info</h3>’ -PostContent $post_host_file | Out-String
+    $get_net_file = ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>Network File Info</h3>’ -PostContent $post_net_file | Out-String 
     $net_adpt = $net_adpt_result | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>Network Adapter Info</h3>’ | Out-String
     $net_cfg = $net_cfg_result | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>Network IP Info</h3>’ | Out-String
     $net_rt = $net_rt_result | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>Network Routing Info</h3>’ | Out-String
@@ -298,7 +274,7 @@ function IR-Artifact-Acquisition-Network($ir_report_var) {
     $net_arp = $net_arp_result | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>Arp Cache Info</h3>’ | Out-String
     $get_smb = Get-SmbShare -ErrorAction SilentlyContinue | Select-Object Name, ShareType, Path, Description, SecurityDescriptor, EncryptData, CurrentUsers | ConvertTo-Html -As Table -PreContent ‘<h3>SMB Shares Info</h3>’ -Fragment | Out-String
     $get_dns_cache = Get-DnsClientCache | ConvertTo-Html -As Table -PreContent ‘<h3>DNS Cache Info (Status 0 equals success)</h3>’ -Fragment -Property Entry, Data, TimeToLive, Status | Out-String
-    $post_output = @($net_adpt, $net_cfg, $net_bnd, $get_fw_status, $host_net_array[0], $host_net_array[1], $net_rt, $net_arp, $get_smb, $get_dns_cache, $get_net_con_tcp, $get_net_con_udp)
+    $post_output = @($net_adpt, $net_cfg, $net_bnd, $get_fw_status, $get_host_file, $get_net_file, $net_rt, $net_arp, $get_smb, $get_dns_cache, $get_net_con_tcp, $get_net_con_udp)
     $report_array = @($ir_report_var, $create_report, $post_output)
     IR-Artifact-Acquisition-Report-Creation($report_array)
 }

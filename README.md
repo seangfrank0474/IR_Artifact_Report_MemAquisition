@@ -10,7 +10,8 @@ https://github.com/Velocidex/WinPmem/releases/tag/v4.0.rc1
 Using 7-Zip to compress all the output (7za.exe)
 https://www.7-zip.org/download.html
 
-You can run this script from the box you would like to triage. It will pull the latest zip and expand the archive into your environments temp directory.
+You can run this script from the box you would like to triage. 
+It will pull the latest zip and expand the archive into your environments temp directory.
 https://github.com/seangfrank0474/IR_Artifact_Mem_Pull/blob/main/irartmem_pull.ps1
 
 <pre>

@@ -116,17 +116,31 @@ function IR-Artifact-Acquisition-Setup($triageType) {
 
 # Function call to create a raw memory image that will be written to the \IRTriage\<hostname>\image\<hostname>_mem_img_<date>.raw
 function IR-Artifact-Acquisition-Image($ir_image_var) {
-    $winpmem_path = ".\winpmem.exe"
-    if (Test-Path -Path $winpmem_path) {
-        $cmdlocation = ($env:SystemRoot + "\System32\cmd.exe")
-        $mem_acq_file = $ENV:ComputerName + '_mem_img_' + $(get-date -UFormat "%Y_%m_%dT%H_%M_%S") + '.raw'
-        $mem_img_full_path = $ir_image_var + '\' + $mem_acq_file
-        $screen_output = "[+] {0} IR Triage and Acquisition is going to acquire a memory image this will take awhile, so go get a cup off coffee. image path: {1} filename: {2}" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_image_var, $mem_acq_file
-        Write-Output $screen_output 
-        Start-Process -Wait -NoNewWindow -FilePath "$env:comspec" -ArgumentList "/c","$winpmem_path","$mem_img_full_path"
-        $screen_output = "[+] {0} IR Triage and Acquisition memory acquisition is complete. Image can be found here: {1}" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $mem_img_full_path
-        Write-Output $screen_output   
-    }
+    $script_run_path = (Get-Item $PSScriptRoot).FullName + "\winpmem.exe"
+    $ir_pull_path = $env:TEMP  + "\irts\IR_Artifact_Report_MemAquisition-main\winpmem.exe"
+    $relative_path = ".\winpmem.exe"
+    if (Test-Path -Path $relative_path) {
+        $winpmem_path = $relative_path
+        }
+    elseif (Test-Path -Path $script_run_path) {
+        $winpmem_path = $script_run_path
+        }
+    elseif (Test-Path -Path $ir_pull_path) {
+        $winpmem_path = $ir_pull_path
+        }
+    else {
+        $screen_output = "[+] {0} IR Triage and Acquisition could not find the path of winpmem.exe and will now exit. The winpmem.exe file needs to be in the script path" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")
+        Write-Output $screen_output
+        exit 
+        }
+    $mem_acq_file = $ENV:ComputerName + '_mem_img_' + $(get-date -UFormat "%Y_%m_%dT%H_%M_%S") + '.raw'
+    $mem_img_full_path = $ir_image_var + '\' + $mem_acq_file
+    $screen_output = "[+] {0} IR Triage and Acquisition is going to acquire a memory image this will take awhile, so go get a cup off coffee. image path: {1} filename: {2}" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_image_var, $mem_acq_file
+    Write-Output $screen_output 
+    Start-Process -Wait -NoNewWindow -FilePath "$env:comspec" -ArgumentList "/c","$winpmem_path","$mem_img_full_path"
+    $screen_output = "[+] {0} IR Triage and Acquisition memory acquisition is complete. Image can be found here: {1}" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $mem_img_full_path
+    Write-Output $screen_output   
+    
 }
 
 # Function call to create the HTML fragments that will be written to the \IRTriage\<hostname>\report\Environment.html
@@ -534,7 +548,7 @@ function IR-Artifact-Acquisition-Report-Creation($report_array) {
     }
     $ir_report_full_path = $ir_report_var + "\" + $html_report
     ConvertTo-HTML @htmlParams | Out-File $ir_report_full_path
-    #Invoke-Item $ir_report_full_path
+    Invoke-Item $ir_report_full_path
 }
 
 # Argument Array and check setup
@@ -547,7 +561,7 @@ elseif ( $args[0] -in $ir_cmd_array ){
     }
 else {
     $triageType = $args[0]
-    $screen_output = "[+] {0} Triage type is unknown. (Default variable: report - Valid variables: image,report,both) Variable used: {1}. Script exiting." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $triageType
+    $screen_output = "[+] {0} Triage type is unknown. (Default variable: report - Valid variables: all, event, image, report) Variable used: {1}. Script exiting." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $triageType
     Write-Output $screen_output
     exit 
     }
@@ -601,15 +615,29 @@ if ($triageType -eq 'event') {
     IR-Artifact-Acquisition-EventLogs($ir_event_var)
     }
 
-$zip_7z_path = ".\7za.exe"
-if (Test-Path -Path $zip_7z_path) {
-    $ir_trgt_comp = $ir_setup_out[5] + "\*"
-    $ir_trgt_zip = $ir_setup_out[6] + "\" + $ENV:ComputerName + "_" + $(get-date -UFormat "%Y_%m_%dT%H_%M_%S") + ".7z"
-    $screen_output = "[+] {0} IR Triage and Acquisition compression has started, like the memory image this may take awhile - compressed path: ({1})." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_trgt_zip
+$script_run_path = (Get-Item $PSScriptRoot).FullName + "\7za.exe"
+$ir_pull_path = $env:TEMP  + "\irts\IR_Artifact_Report_MemAquisition-main\7za.exe"
+$relative_path = ".\7za.exe"
+if (Test-Path -Path $relative_path) {
+    $zip_7z_path = $relative_path
+    }
+elseif (Test-Path -Path $script_run_path) {
+    $zip_7z_path = $script_run_path
+    }
+elseif (Test-Path -Path $ir_pull_path) {
+    $zip_7z_path = $ir_pull_path
+    }
+else {
+    $screen_output = "[+] {0} IR Triage and Acquisition could not find the path of 7za.exe and will now exit. The 7za.exe file needs to be in the script path" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")
     Write-Output $screen_output
-    Start-Process -Wait -NoNewWindow -FilePath "$env:comspec" -ArgumentList "/c","$zip_7z_path","a","-mx1","$ir_trgt_zip","$ir_trgt_comp"
-    $screen_output = "[+] {0} IR Triage and Acquisition has compressed all findings - compressed path: ({1})." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_trgt_zip
-    Write-Output $screen_output
-}
+    exit 
+    }
+$ir_trgt_comp = $ir_setup_out[5] + "\*"
+$ir_trgt_zip = $ir_setup_out[6] + "\" + $ENV:ComputerName + "_" + $(get-date -UFormat "%Y_%m_%dT%H_%M_%S") + ".7z"
+$screen_output = "[+] {0} IR Triage and Acquisition compression has started, depending on the data being compressed this could take awhile - compressed path: ({1})." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_trgt_zip
+Write-Output $screen_output
+Start-Process -Wait -NoNewWindow -FilePath "$env:comspec" -ArgumentList "/c","$zip_7z_path","a","-mx1","$ir_trgt_zip","$ir_trgt_comp"
+$screen_output = "[+] {0} IR Triage and Acquisition has compressed all findings - compressed path: ({1})." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_trgt_zip
+Write-Output $screen_output
 $screen_output = "[+] {0} IR Triage and Acquisition is complete. Exiting the script." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")
 Write-Output $screen_output

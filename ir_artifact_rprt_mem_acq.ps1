@@ -137,7 +137,7 @@ function IR-Artifact-Acquisition-Image($ir_image_var) {
     $mem_img_full_path = $ir_image_var + '\' + $mem_acq_file
     $screen_output = "[+] {0} IR Triage and Acquisition is going to acquire a memory image this will take awhile, so go get a cup off coffee. image path: {1} filename: {2}" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_image_var, $mem_acq_file
     Write-Output $screen_output 
-    Start-Process -Wait -NoNewWindow -FilePath "$env:comspec" -ArgumentList "/c","$winpmem_path","$mem_img_full_path"
+    Start-Process -Wait -NoNewWindow -RedirectStandardOutput "winpmem.txt" -RedirectStandardError "Error.txt" -FilePath "$env:comspec" -ArgumentList "/c","$winpmem_path","$mem_img_full_path"
     $screen_output = "[+] {0} IR Triage and Acquisition memory acquisition is complete. Image can be found here: {1}" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $mem_img_full_path
     Write-Output $screen_output   
     
@@ -151,6 +151,8 @@ function IR-Artifact-Acquisition-Environment($ir_report_var) {
     $get_bios = Get-WmiObject -Class Win32_Bios -ErrorAction SilentlyContinue | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>BIOS Info</h3>’ -Property Name, Manufacturer, Version, SMBIOSBIOSVersion, SerialNumber | Out-String
     $get_os = Get-WmiObject -Class Win32_OperatingSystem -ErrorAction SilentlyContinue | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>OS Info</h3>’ -Property Organization, RegisteredUser, Version, BuildNumber, SerialNumber, SystemDirectory | Out-String
     $get_drv = Get-WmiObject -Class Win32_LogicalDisk -Filter 'DriveType=3' -ErrorAction SilentlyContinue | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>Drive Info</h3>’ -Property DeviceID, DriveType, ProviderName, Size, FreeSpace | Out-String
+    $get_av = Get-WmiObject -namespace root\Microsoft\SecurityClient -Class AntimalwareHealthStatus | select Name, Version, Enabled, AntispywareEnabled, AntivirusEnabled, BehaviorMonitorEnabled, IoavProtectionEnabled, NisEnabled, RtpEnabled | ConvertTo-Html -As List -Fragment -PreContent ‘<h3>AV Info</h3>’ | Out-String
+    $get_install_prog = Get-WmiObject -Class Win32_Product | Select Name, Vendor, Version, Caption | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>Installed Programs Info</h3>’ | Out-String
     $get_env = Get-ChildItem ENV: -ErrorAction SilentlyContinue | ConvertTo-Html -As TABLE -Fragment -PreContent ‘<h3>Environment Info</h3>’ -Property Name, Value| Out-String
     $get_local_user = Get-LocalUser | ConvertTo-Html -As Table -PreContent ‘<h3>Local Users Info</h3>’ -Fragment -Property Name, FullName, SID, Description, LastLogon, PasswordRequired, PasswordLastSet, PasswordExpires, UserMayChangePassword, Enabled | Out-String
     $get_local_admins = & net localgroup administrators | Select-Object -Skip 6 | ? {
@@ -160,7 +162,7 @@ function IR-Artifact-Acquisition-Environment($ir_report_var) {
     $o.Account = $_
     $o
     } | ConvertTo-Html -As Table -PreContent ‘<h3>Local Admin Members Info</h3>’ -Fragment -Property Account | Out-String
-    $post_output = @($get_proc, $get_bios, $get_os, $get_drv, $get_env, $get_local_user, $get_local_admins)
+    $post_output = @($get_proc, $get_bios, $get_os, $get_drv, $get_av, $get_install_prog, $get_env, $get_local_user, $get_local_admins)
     $report_array = @($ir_report_var, $create_report, $post_output)
     IR-Artifact-Acquisition-Report-Creation($report_array)
 }
@@ -636,7 +638,7 @@ $ir_trgt_comp = $ir_setup_out[5] + "\*"
 $ir_trgt_zip = $ir_setup_out[6] + "\" + $ENV:ComputerName + "_" + $(get-date -UFormat "%Y_%m_%dT%H_%M_%S") + ".7z"
 $screen_output = "[+] {0} IR Triage and Acquisition compression has started, depending on the data being compressed this could take awhile - compressed path: ({1})." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_trgt_zip
 Write-Output $screen_output
-Start-Process -Wait -NoNewWindow -FilePath "$env:comspec" -ArgumentList "/c","$zip_7z_path","a","-mx1","$ir_trgt_zip","$ir_trgt_comp"
+Start-Process -Wait -NoNewWindow -RedirectStandardOutput "7zip.txt" -RedirectStandardError "Error.txt" -FilePath "$env:comspec" -ArgumentList "/c","$zip_7z_path","a","-mx1","$ir_trgt_zip","$ir_trgt_comp"
 $screen_output = "[+] {0} IR Triage and Acquisition has compressed all findings - compressed path: ({1})." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_trgt_zip
 Write-Output $screen_output
 $screen_output = "[+] {0} IR Triage and Acquisition is complete. Exiting the script." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")

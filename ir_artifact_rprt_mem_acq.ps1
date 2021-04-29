@@ -152,7 +152,7 @@ function IR-Artifact-Acquisition-Environment($ir_report_var) {
     $get_os = Get-WmiObject -Class Win32_OperatingSystem -ErrorAction SilentlyContinue | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>OS Info</h3>’ -Property Organization, RegisteredUser, Version, BuildNumber, SerialNumber, SystemDirectory | Out-String
     $get_drv = Get-WmiObject -Class Win32_LogicalDisk -Filter 'DriveType=3' -ErrorAction SilentlyContinue | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>Drive Info</h3>’ -Property DeviceID, DriveType, ProviderName, Size, FreeSpace | Out-String
     $get_av = Get-WmiObject -namespace root\Microsoft\SecurityClient -Class AntimalwareHealthStatus | select Name, Version, Enabled, AntispywareEnabled, AntivirusEnabled, BehaviorMonitorEnabled, IoavProtectionEnabled, NisEnabled, RtpEnabled | ConvertTo-Html -As List -Fragment -PreContent ‘<h3>AV Info</h3>’ | Out-String
-    $get_install_prog = Get-WmiObject -Class Win32_Product | Select Name, Vendor, Version, Caption | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>Installed Programs Info</h3>’ | Out-String
+    $get_install_prog = Get-WmiObject -Class Win32_Product | Select Name, Vendor, Version | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>Installed Programs Info</h3>’ | Out-String
     $get_env = Get-ChildItem ENV: -ErrorAction SilentlyContinue | ConvertTo-Html -As TABLE -Fragment -PreContent ‘<h3>Environment Info</h3>’ -Property Name, Value| Out-String
     $get_local_user = Get-LocalUser | ConvertTo-Html -As Table -PreContent ‘<h3>Local Users Info</h3>’ -Fragment -Property Name, FullName, SID, Description, LastLogon, PasswordRequired, PasswordLastSet, PasswordExpires, UserMayChangePassword, Enabled | Out-String
     $get_local_admins = & net localgroup administrators | Select-Object -Skip 6 | ? {
@@ -335,20 +335,29 @@ function IR-Artifact-Acquisition-File($ir_report_var) {
     $user_strt_file_array = @()
     $user_ff_brwsr_array = @()
     $user_chrm_brwsr_array = @()
-    $user_ie_brwsr_array = @()
     $url_match = '(htt(p|s))://([\w-]+\.)+[\w-]+(/[\w- ./?%&=]*)*?'
-    $Null = New-PSDrive -Name HKU -PSProvider Registry -Root HKEY_USERS
-    $user_paths = Get-ChildItem 'HKU:\' -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'S-1-5-21-[0-9]+-[0-9]+-[0-9]+-[0-9]+$' }
     $auto_run_out = @()
     $auto_run_reg_array = @("\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer\Run", "\Software\Microsoft\Windows\CurrentVersion\Run", "\Software\Microsoft\Windows\CurrentVersion\RunOnce", "\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders", "\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\User` Shell` Folders", "\Software\Microsoft\Windows\CurrentVersion\RunServicesOnce", "\Software\Microsoft\Windows\CurrentVersion\RunServices", "\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer\Run")
     foreach ($reg_path in $auto_run_reg_array) {
-        if (Test-Path -Path Registry::HKEY_LOCAL_MACHINE$reg_path){ 
-            $precont_reg = '<h3>Auto Run Hive "' + $reg_path + '" Info</h3>'
-            $auto_run_hive = Get-ItemProperty -Path HKLM:$reg_path | Select-Object * -ExcludeProperty PSPath, PSChildName, PSProvider, PSDrive
-            $auto_run_out += $auto_run_hive
+        switch (Test-Path -Path Registry::HKEY_LOCAL_MACHINE$reg_path) {
+            $true {
+                Get-Item -Path HKLM:$reg_path | Foreach {
+                    $key = $_
+                    $key.GetValueNames() | ForEach {
+                        $auto_run_out += New-Object -TypeName PSCustomObject -Property ([ordered]@{
+                            'Hive' = $key.Name
+                            'Name' = $_ -join ','
+                            'Data' = $key.GetValue($_) -join ','
+                            })
+                    }
+                } 
             }
-
-    }
+            $false {
+                continue
+            }
+        }
+    }    
+    
     foreach($userpath in (Get-WmiObject win32_userprofile | Select-Object -ExpandProperty localpath)) {
         if (Test-Path(($userpath + "\AppData\Local\Temp"))) {
             $user_temp = Get-ChildItem -Force ($userpath + "\AppData\Local\Temp\*") | Select-Object FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes | Sort-Object -Property CreationTimeUtc
@@ -394,34 +403,67 @@ function IR-Artifact-Acquisition-File($ir_report_var) {
         } 
 
     }
-    foreach($user_path in $user_paths) {
+    
+    $hku_url_path_out = @()
+    $hku_run_path_out = @()
+    foreach ($user_path in $user_paths) {
         $get_user = ([System.Security.Principal.SecurityIdentifier] $user_path.PSChildName).Translate( [System.Security.Principal.NTAccount]) | Select -ExpandProperty Value
         $user_path = $user_path | Select-Object -ExpandProperty PSPath
-        $ie_user_path = "$user_path\Software\Microsoft\Internet Explorer\TypedURLs"
-        if (Test-Path -Path $ie_user_path) {
-            $user_ie_url = Get-Item -Path $ie_user_path -ErrorAction SilentlyContinue | ForEach-Object {
-                $ie_key = $_
-                $ie_key.GetValueNames() | ForEach-Object {
-                    $ie_value = $ie_key.GetValue($_)
-                    if ($ie_value -match $Search) {
-                        New-Object -TypeName PSObject -Property @{
-                            User = $get_user
-                            URL = $ie_value
-                            }
+        $hku_url_paths = @("\Software\Microsoft\Internet Explorer\TypedURLs")
+        $hku_run_paths = @("\Software\Microsoft\Windows\CurrentVersion\Run", "\Software\Microsoft\Windows\CurrentVersion\RunOnce")
+        foreach ($hku_url_path in $hku_url_paths) {
+            $hku_full_url_path = $user_path + $hku_url_path
+            switch (Test-Path -Path $hku_full_url_path ) { 
+                $true{
+                    Get-Item -Path $hku_full_url_path | Foreach {
+                    $key = $_
+                    $key.GetValueNames() | ForEach {
+                        $hku_url_path_out += New-Object -TypeName PSCustomObject -Property ([ordered]@{
+                            'UserName' = $get_user
+                            'Hive' = $key.Name -join ','
+                            'Name' = $_ -join ','
+                            'Data' = $key.GetValue($_) -join ','
+                            })
                         }
                     }
                 }
-                $user_ie_brwsr_array += $user_ie_url
+                $false{ 
+                    continue 
+                }
             }
+        }
+        foreach ($hku_run_path in $hku_run_paths) {
+            $hku_full_run_path = $user_path + $hku_run_path
+            switch (Test-Path -Path $hku_full_run_path ) { 
+                $true{
+                    Get-Item -Path $hku_full_run_path | Foreach {
+                    $key = $_
+                    $key.GetValueNames() | ForEach {
+                        $hku_run_path_out += New-Object -TypeName PSCustomObject -Property ([ordered]@{
+                            'UserName' = $get_user
+                            'Hive' = $key.Name -join ','
+                            'Name' = $_ -join ','
+                            'Data' = $key.GetValue($_) -join ','
+                            })
+                        }
+                    }
+                }
+                $false{ 
+                    continue 
+                }
+            }
+        }
     }
+    
     $pref_chk = (Get-ItemProperty "hklm:\system\currentcontrolset\control\session manager\memory management\prefetchparameters").EnablePrefetcher
     if ($pref_chk -in (1,2,3)){
         $lst_pref = Get-ChildItem $env:windir\Prefetch\*.pf
         $get_pref = $lst_pref | Select-Object -Property FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes | Sort-Object -Property CreationTimeUtc | ConvertTo-Html -As Table -Fragment -PreContent '<h3>Windows Prefetch Info</h3>' | Out-String
         }
     else { $get_pref = "No Prefetch Enabled" | ConvertTo-Html -As Table -Fragment -PreContent '<h3>Windows Prefetch Info</h3>' | Out-String}
-    $get_auto_run = $auto_run_out | Convertto-html -As List -Fragment -PreContent '<h3>Auto Run Hive Info</h3>' | Out-String
-    $get_ie_bd = $user_ie_brwsr_array | Select-Object User, URL | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>IE Browser Info</h3>’ | Out-String
+    $get_auto_run = $auto_run_out | Convertto-html -As Table -Fragment -PreContent '<h3>HKLM Auto Run Hive Info</h3>' | Out-String
+    $get_hku_url = $hku_url_path_out | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>HKU IE URL Hive Info</h3>’ | Out-String
+    $get_hku_autorun = $hku_run_path_out | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>HKU Auto Run Hive Info</h3>’ | Out-String
     $get_ch_bd = $user_chrm_brwsr_array | Select-Object UserPath, URL | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>Chrome Browser Info</h3>’ | Out-String
     $get_ff_bd = $user_ff_brwsr_array | Select-Object UserPath, URL | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>FireFox Browser Info</h3>’ | Out-String
     $get_progdata_strt = (Get-ChildItem $env:ProgramData\Microsoft\Windows\Start` Menu\Programs | Select-Object FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes | Sort-Object -Property CreationTimeUtc | ConvertTo-Html -As Table -Fragment -PreContent '<h3>Program Data Start Directory Info</h3>' | Out-String)
@@ -429,7 +471,7 @@ function IR-Artifact-Acquisition-File($ir_report_var) {
     $get_temp = $user_temp_file_array | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>User Temp Directory Info</h3>’ | Out-String
     $get_strt = $user_strt_file_array | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>User Start Directory Info</h3>’ | Out-String
     $get_dnld = $user_dnld_file_array | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3>User Download Directory Info</h3>’ | Out-String
-    $post_output = @($get_auto_run, $get_strt, $get_progdata_strt, $get_pref, $get_temp, $get_sys_temp, $get_ie_bd, $get_ch_bd, $get_ff_bd, $get_dnld)
+    $post_output = @($get_auto_run, $get_hku_autorun, $get_strt, $get_progdata_strt, $get_pref, $get_temp, $get_sys_temp, $get_hku_url, $get_ch_bd, $get_ff_bd, $get_dnld)
     $report_array = @($ir_report_var, $create_report, $post_output)
     IR-Artifact-Acquisition-Report-Creation($report_array)
 }
@@ -579,11 +621,25 @@ if ($triageType -eq 'all') {
     Write-Output $screen_output
     IR-Artifact-Acquisition-Image($ir_image_var)
     IR-Artifact-Acquisition-Report-Creation($ir_report_var,'index','None')
+    $screen_output = "[+] {0} IR Triage and Acquisition - index.html created" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
+    Write-Output $screen_output
     IR-Artifact-Acquisition-Environment($ir_report_var)
+    $screen_output = "[+] {0} IR Triage and Acquisition - Environment Report Complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
+    Write-Output $screen_output
     IR-Artifact-Acquisition-Network($ir_report_var)
+    $screen_output = "[+] {0} IR Triage and Acquisition - Network Report Complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
+    Write-Output $screen_output
     IR-Artifact-Acquisition-Process($ir_report_var)
+    $screen_output = "[+] {0} IR Triage and Acquisition - Processes and Services Report Complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
+    Write-Output $screen_output
     IR-Artifact-Acquisition-File($ir_report_var)
+    $screen_output = "[+] {0} IR Triage and Acquisition - Files and Registry Report Complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
+    Write-Output $screen_output
+    $screen_output = "[+] {0} IR Triage and Acquisition - Pulling events from Security/System/Powershell for the past 3 days" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_event_var
+    Write-Output $screen_output
     IR-Artifact-Acquisition-EventLogs($ir_event_var){}
+    $screen_output = "[+] {0} IR Triage and Acquisition - Events pull is complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_event_var
+    Write-Output $screen_output
     }
 
 if ($triageType -eq 'image') {
@@ -602,10 +658,20 @@ if ($triageType -eq 'report') {
     $screen_output = "[+] {0} IR Triage and Acquisition - report path: ({1})" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
     Write-Output $screen_output
     IR-Artifact-Acquisition-Report-Creation($ir_report_var,'index','None')
+    $screen_output = "[+] {0} IR Triage and Acquisition - index.html created" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
+    Write-Output $screen_output
     IR-Artifact-Acquisition-Environment($ir_report_var)
+    $screen_output = "[+] {0} IR Triage and Acquisition - Environment Report Complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
+    Write-Output $screen_output
     IR-Artifact-Acquisition-Network($ir_report_var)
+    $screen_output = "[+] {0} IR Triage and Acquisition - Network Report Complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
+    Write-Output $screen_output
     IR-Artifact-Acquisition-Process($ir_report_var)
+    $screen_output = "[+] {0} IR Triage and Acquisition - Processes and Services Report Complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
+    Write-Output $screen_output
     IR-Artifact-Acquisition-File($ir_report_var)
+    $screen_output = "[+] {0} IR Triage and Acquisition - Files and Registry Report Complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
+    Write-Output $screen_output
     }
 
 if ($triageType -eq 'event') {
@@ -614,7 +680,11 @@ if ($triageType -eq 'event') {
     $ir_event_var = $ir_setup_out[4]
     $screen_output = "[+] {0} IR Triage and Acquisition - event path: ({1})" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_event_var
     Write-Output $screen_output
-    IR-Artifact-Acquisition-EventLogs($ir_event_var)
+    $screen_output = "[+] {0} IR Triage and Acquisition - Pulling events from Security/System/Powershell for the past 3 days" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_event_var
+    Write-Output $screen_output
+    IR-Artifact-Acquisition-EventLogs($ir_event_var){}
+    $screen_output = "[+] {0} IR Triage and Acquisition - Events pull is complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_event_var
+    Write-Output $screen_output
     }
 
 $script_run_path = (Get-Item $PSScriptRoot).FullName + "\7za.exe"

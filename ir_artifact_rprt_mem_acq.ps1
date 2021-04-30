@@ -137,10 +137,16 @@ function IR-Artifact-Acquisition-Image($ir_image_var) {
     $mem_img_full_path = $ir_image_var + '\' + $mem_acq_file
     $screen_output = "[+] {0} IR Triage and Acquisition is going to acquire a memory image this will take awhile, so go get a cup off coffee. image path: {1} filename: {2}" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_image_var, $mem_acq_file
     Write-Output $screen_output 
-    Start-Process -Wait -NoNewWindow -RedirectStandardOutput "winpmem.txt" -RedirectStandardError "Error.txt" -FilePath "$env:comspec" -ArgumentList "/c","$winpmem_path","$mem_img_full_path"
+    $mem_acq = Start-Process -PassThru -NoNewWindow -RedirectStandardOutput "winpmem.txt" -RedirectStandardError "Error.txt" -FilePath "$env:comspec" -ArgumentList "/c","$winpmem_path","$mem_img_full_path"
+    $get_proc_id = $mem_acq.Id
+    do {
+        $screen_output = "[+] {0} IR Triage and Acquisition is still dumping memory - please standby." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")
+        Write-Output $screen_output
+        Start-Sleep -Seconds 20
+    }
+    until ((Get-Process -Name "cmd" -ErrorAction SilentlyContinue | where {$_.Id -eq $get_proc_id}) -eq $null)
     $screen_output = "[+] {0} IR Triage and Acquisition memory acquisition is complete. Image can be found here: {1}" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $mem_img_full_path
     Write-Output $screen_output   
-    
 }
 
 # Function call to create the HTML fragments that will be written to the \IRTriage\<hostname>\report\Environment.html
@@ -592,7 +598,7 @@ function IR-Artifact-Acquisition-Report-Creation($report_array) {
     }
     $ir_report_full_path = $ir_report_var + "\" + $html_report
     ConvertTo-HTML @htmlParams | Out-File $ir_report_full_path
-    Invoke-Item $ir_report_full_path
+    #Invoke-Item $ir_report_full_path
 }
 
 # Argument Array and check setup
@@ -704,11 +710,19 @@ else {
     Write-Output $screen_output
     exit 
     }
+
 $ir_trgt_comp = $ir_setup_out[5] + "\*"
 $ir_trgt_zip = $ir_setup_out[6] + "\" + $ENV:ComputerName + "_" + $(get-date -UFormat "%Y_%m_%dT%H_%M_%S") + ".7z"
 $screen_output = "[+] {0} IR Triage and Acquisition compression has started, depending on the data being compressed this could take awhile - compressed path: ({1})." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_trgt_zip
 Write-Output $screen_output
-Start-Process -Wait -NoNewWindow -RedirectStandardOutput "7zip.txt" -RedirectStandardError "Error.txt" -FilePath "$env:comspec" -ArgumentList "/c","$zip_7z_path","a","-mx1","$ir_trgt_zip","$ir_trgt_comp"
+$zip_evidence = Start-Process -PassThru -NoNewWindow -RedirectStandardOutput "7zip.txt" -RedirectStandardError "Error.txt" -FilePath "$env:comspec" -ArgumentList "/c","$zip_7z_path","a","-mx1","$ir_trgt_zip","$ir_trgt_comp"
+$get_proc_id = $zip_evidence.Id
+do {
+$screen_output = "[+] {0} IR Triage and Acquisition compressing please wait." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")
+Write-Output $screen_output
+Start-Sleep -Seconds 20
+}
+until ((Get-Process -Name "cmd" -ErrorAction SilentlyContinue | where {$_.Id -eq $get_proc_id}) -eq $null)
 $screen_output = "[+] {0} IR Triage and Acquisition has compressed all findings - compressed path: ({1})." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_trgt_zip
 Write-Output $screen_output
 $screen_output = "[+] {0} IR Triage and Acquisition is complete. Exiting the script." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")

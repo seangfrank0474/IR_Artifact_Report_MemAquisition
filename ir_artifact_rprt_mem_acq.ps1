@@ -718,9 +718,9 @@ Write-Output $screen_output
 $zip_evidence = Start-Process -PassThru -NoNewWindow -RedirectStandardOutput "7zip.txt" -RedirectStandardError "Error.txt" -FilePath "$env:comspec" -ArgumentList "/c","$zip_7z_path","a","-mx1","$ir_trgt_zip","$ir_trgt_comp"
 $get_proc_id = $zip_evidence.Id
 do {
-$screen_output = "[+] {0} IR Triage and Acquisition compressing please wait." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")
-Write-Output $screen_output
-Start-Sleep -Seconds 20
+    $screen_output = "[+] {0} IR Triage and Acquisition compressing please wait." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")
+    Write-Output $screen_output
+    Start-Sleep -Seconds 20
 }
 until ((Get-Process -Name "cmd" -ErrorAction SilentlyContinue | where {$_.Id -eq $get_proc_id}) -eq $null)
 $screen_output = "[+] {0} IR Triage and Acquisition has compressed all findings - compressed path: ({1})." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_trgt_zip

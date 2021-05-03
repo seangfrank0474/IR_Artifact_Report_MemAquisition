@@ -40,77 +40,61 @@
 # Function call to check drive space to write event, images, and reports
 function IR-Artifact-Acquisition-Setup($triageType) {
     # Setup IR Artifact directory. Looking for the drive with the most free space.
-    $dsk_id_array = (Get-CimInstance -Class CIM_LogicalDisk).DeviceId
-    $dsk_free_array_bytes = (Get-CimInstance -Class CIM_LogicalDisk).FreeSpace
+    $dsk_array = (Get-CimInstance -Class CIM_LogicalDisk | where {$_.DeviceID})
     $physical_mem_bytes = (Get-CimInstance -Class win32_ComputerSystem).TotalPhysicalMemory
     $physical_mem_gb = [math]::Round($physical_mem_bytes/1024/1024/1024)
-    $dsk_id_cnt = $dsk_id_array.Count
-    $drv_viability = $physical_mem_gb * 2
-    $dsk_free_array_gb = @()
-    # Creating an array to be used to find a viable drive to create a directory for image acquision and artifact reports.
-    for ($i = 0; $i -lt $dsk_id_cnt; $i++){
-        $dsk_free_gb = [math]::Round($dsk_free_array_bytes[$i]/1024/1024/1024)
-        $dsk_free_array_gb += $dsk_free_gb
-    }
+    $all_img_viable = [math]::Round($physical_mem_gb * 2.5)
+    $evt_rpt_viable = [math]::Round($physical_mem_gb * 1.5)
+    $dsk_to_use = $null
     # Finding the drive with the maximum free space in the array that was created in the previous for loop. If none is found it will exit the script.
-    $dsk_free_max = ($dsk_free_array_gb | measure -Maximum).Maximum
-    if ((($triageType -in ('all','image')) -and $dsk_free_max -ge $drv_viability) -or (($triageType -in ('report','event')) -and $dsk_free_max -ge $physical_mem_gb)){
-        for ($i = 0; $i -lt $dsk_id_cnt; $i++){
-            if ($triageType -in ('all','image')){
-                if (($dsk_free_array_gb[$i] -eq $dsk_free_max) -and ($dsk_free_array_gb[$i] -ge $drv_viability)){
-                    $dsk_to_use = $dsk_id_array[$i]
-                    $screen_output = "[+] {0} Found disk that meets the criteria for memory acquisition/reports/events. Disk to be used: {1} with freespace: {2} GB and phyisical memory to image: {3} GB" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $dsk_to_use, $dsk_free_max, $physical_mem_gb
-                    Write-Output $screen_output
-                    break
-                    }
-                else { 
-                    continue 
-                    }
-            }
-            if ($triageType -in ('report','event')){
-                if (($dsk_free_array_gb[$i] -eq $dsk_free_max) -and ($dsk_free_array_gb[$i] -ge $physical_mem_gb)){
-                    $dsk_to_use = $dsk_id_array[$i]
-                    $screen_output = "[+] {0} Found disk that meets the criteria for memory acquisition/reports/events. Disk to be used: {1} with freespace: {2} GB and phyisical memory to image: {3} GB" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $dsk_to_use, $dsk_free_max, $physical_mem_gb
-                    Write-Output $screen_output
-                    break
-                    }
-                else { 
-                    continue 
-                    }
-            }
+    foreach ($disk in $dsk_array){
+        $disk_free = [math]::Round($disk.FreeSpace/1024/1024/1024)
+        if ($triageType -in ('all','image') -and $disk_free -ge $all_img_viable){
+            $dsk_to_use = $disk.DeviceID
+            $screen_output = "[+] {0} Found disk that meets the criteria for memory acquisition/reports/events. Disk to be used: {1} with freespace: {2} GB and phyisical memory to image: {3} GB" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $dsk_to_use, $disk_free, $physical_mem_gb
+            Write-Output $screen_output
+            break
         }
-        Switch -Regex ($dsk_to_use) {
-            "[A-Za-z]\:" {
-                $ir_triage_path = $dsk_to_use + '\IRTriage'
-                }
-            default {
-                $ir_triage_path = $dsk_to_use + ':\IRTriage'
-                }
-            }      
-        $ir_triage_path_host = $ir_triage_path + '\' + $ENV:ComputerName
-        $ir_triage_path_image = $ir_triage_path_host + '\image'
-        $ir_triage_path_report = $ir_triage_path_host + '\report'
-        $ir_triage_path_event = $ir_triage_path_host + '\event'
-        $ir_triage_path_return = @($ir_triage_path_image, $ir_triage_path_report, $ir_triage_path_event, $ir_triage_path_host, $ir_triage_path)
-        if (!(Test-Path -Path $ir_triage_path)){
-            New-Item -ItemType directory -Path $ir_triage_path | Out-Null
-            New-Item -ItemType directory -Path $ir_triage_path_host | Out-Null
-            New-Item -ItemType directory -Path $ir_triage_path_image | Out-Null
-            New-Item -ItemType directory -Path $ir_triage_path_report | Out-Null
-            New-Item -ItemType directory -Path $ir_triage_path_event | Out-Null
-            $screen_output = "[+] {0} IR Triage and Acquisition paths have been setup." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")
+        if ($triageType -in ('event','report') -and $disk_free -ge $evt_rpt_viable){
+            $dsk_to_use = $disk.DeviceID
+            $screen_output = "[+] {0} Found disk that meets the criteria for memory acquisition/reports/events. Disk to be used: {1} with freespace: {2} GB and phyisical memory to image: {3} GB" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $dsk_to_use, $disk_free, $physical_mem_gb
             Write-Output $screen_output
+            break
+        }
+    }  
+
+    Switch -Regex ($dsk_to_use) {
+        "^[A-Za-z]\:$" {
+            $ir_triage_path = $dsk_to_use + '\IRTriage'
             }
-        else{
-            $screen_output = "[+] {0} IR Triage and Acquision paths have been previously setup and is ready for the acquisition process." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")
+        "^[A-Za-z]$"{
+            $ir_triage_path = $dsk_to_use + ':\IRTriage'
+            }
+        default {
+            $screen_output = "[+] {0} No viable drive(s) can be found for memory acquisition and/or reports. Exiting the script" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")
             Write-Output $screen_output
+            exit
             }
-    }
-    else { 
-        $screen_output = "[+] {0} No viable drive(s) can be found for memory acquisition and/or reports. Exiting the script" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")
+    }   
+    # Create a directory structure for image acquision and artifact reports.
+    $ir_triage_path_host = $ir_triage_path + '\' + $ENV:ComputerName
+    $ir_triage_path_image = $ir_triage_path_host + '\image'
+    $ir_triage_path_report = $ir_triage_path_host + '\report'
+    $ir_triage_path_event = $ir_triage_path_host + '\event'
+    $ir_triage_path_return = @($ir_triage_path_image, $ir_triage_path_report, $ir_triage_path_event, $ir_triage_path_host, $ir_triage_path)
+    if (!(Test-Path -Path $ir_triage_path)){
+        New-Item -ItemType directory -Path $ir_triage_path | Out-Null
+        New-Item -ItemType directory -Path $ir_triage_path_host | Out-Null
+        New-Item -ItemType directory -Path $ir_triage_path_image | Out-Null
+        New-Item -ItemType directory -Path $ir_triage_path_report | Out-Null
+        New-Item -ItemType directory -Path $ir_triage_path_event | Out-Null
+        $screen_output = "[+] {0} IR Triage and Acquisition paths have been setup." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")
         Write-Output $screen_output
-        exit
     }
+    else {
+        $screen_output = "[+] {0} IR Triage and Acquision paths have been previously setup and is ready for the acquisition process." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")
+        Write-Output $screen_output
+    }    
     return $ir_triage_path_return
 }
 

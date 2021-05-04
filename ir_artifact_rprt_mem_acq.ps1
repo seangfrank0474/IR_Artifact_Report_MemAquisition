@@ -103,20 +103,22 @@ function IR-Artifact-Acquisition-Image($ir_image_var) {
     $script_run_path = (Get-Item $PSScriptRoot).FullName + "\winpmem.exe"
     $ir_pull_path = $env:TEMP  + "\irts\IR_Artifact_Report_MemAquisition-main\winpmem.exe"
     $relative_path = ".\winpmem.exe"
-    if (Test-Path -Path $relative_path) {
-        $winpmem_path = $relative_path
+    $winpmem_path_array = @($relative_path,$ir_pull_path,$script_run_path)
+    $winpmem_path_cnt = 0
+    switch ($winpmem_path_array){
+        {(Test-Path -Path $_) -eq $true } {
+            $winpmem_path = $_
+            break
         }
-    elseif (Test-Path -Path $script_run_path) {
-        $winpmem_path = $script_run_path
+        {(Test-Path -Path $_) -eq $false } {
+            $winpmem_path_cnt += 1
         }
-    elseif (Test-Path -Path $ir_pull_path) {
-        $winpmem_path = $ir_pull_path
+        {$winpmem_path_cnt -ge 2} {
+            $screen_output = "[+] {0} IR Triage and Acquisition could not find the path of winpmem.exe and will now exit. The winpmem.exe file needs to be in the script path" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")
+            Write-Output $screen_output
+            exit
         }
-    else {
-        $screen_output = "[+] {0} IR Triage and Acquisition could not find the path of winpmem.exe and will now exit. The winpmem.exe file needs to be in the script path" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")
-        Write-Output $screen_output
-        exit 
-        }
+    }
     $mem_acq_file = $ENV:ComputerName + '_mem_img_' + $(get-date -UFormat "%Y_%m_%dT%H_%M_%S") + '.raw'
     $mem_img_full_path = $ir_image_var + '\' + $mem_acq_file
     $screen_output = "[+] {0} IR Triage and Acquisition is going to acquire a memory image this will take awhile, so go get a cup off coffee. image path: {1} filename: {2}" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_image_var, $mem_acq_file
@@ -126,7 +128,7 @@ function IR-Artifact-Acquisition-Image($ir_image_var) {
     do {
         $screen_output = "[+] {0} IR Triage and Acquisition is still dumping memory - please standby." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")
         Write-Output $screen_output
-        Start-Sleep -Seconds 20
+        Start-Sleep -Seconds 10
     }
     until ((Get-Process -Name "cmd" -ErrorAction SilentlyContinue | where {$_.Id -eq $get_proc_id}) -eq $null)
     $screen_output = "[+] {0} IR Triage and Acquisition memory acquisition is complete. Image can be found here: {1}" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $mem_img_full_path
@@ -585,116 +587,116 @@ function IR-Artifact-Acquisition-Report-Creation($report_array) {
     #Invoke-Item $ir_report_full_path
 }
 
-# Argument Array and check setup
 $ir_cmd_array = @('all', 'event', 'image', 'report')
-if ( $args.count -eq 0 ){
-    $triageType = 'report'
-    }
-elseif ( $args[0] -in $ir_cmd_array ){ 
-    $triageType = $args[0] 
-    }
+if ($args.count -eq 0){
+        $triageType = 'report'    
+}
+elseif ($args[0] -in $ir_cmd_array){
+        $triageType = $args[0]
+}
 else {
     $triageType = $args[0]
     $screen_output = "[+] {0} Triage type is unknown. (Default variable: report - Valid variables: all, event, image, report) Variable used: {1}. Script exiting." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $triageType
     Write-Output $screen_output
     exit 
+}
+switch ($triageType) {
+    {$triageType -eq 'all'}{
+        $ir_setup_out = IR-Artifact-Acquisition-setup($triageType)
+        Write-Output $ir_setup_out[0..1]
+        $ir_image_var = $ir_setup_out[2]
+        $ir_report_var = $ir_setup_out[3]
+        $ir_event_var = $ir_setup_out[4]
+        $screen_output = "[+] {0} IR Triage and Acquisition - image path: ({1}) report path: ({2}) event path: ({3})" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_image_var, $ir_report_var, $ir_event_var
+        Write-Output $screen_output
+        IR-Artifact-Acquisition-Image($ir_image_var)
+        IR-Artifact-Acquisition-Report-Creation($ir_report_var,'index','None')
+        $screen_output = "[+] {0} IR Triage and Acquisition - index.html created" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
+        Write-Output $screen_output
+        IR-Artifact-Acquisition-Environment($ir_report_var)
+        $screen_output = "[+] {0} IR Triage and Acquisition - Environment Report Complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
+        Write-Output $screen_output
+        IR-Artifact-Acquisition-Network($ir_report_var)
+        $screen_output = "[+] {0} IR Triage and Acquisition - Network Report Complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
+        Write-Output $screen_output
+        IR-Artifact-Acquisition-Process($ir_report_var)
+        $screen_output = "[+] {0} IR Triage and Acquisition - Processes and Services Report Complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
+        Write-Output $screen_output
+        IR-Artifact-Acquisition-File($ir_report_var)
+        $screen_output = "[+] {0} IR Triage and Acquisition - Files and Registry Report Complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
+        Write-Output $screen_output
+        $screen_output = "[+] {0} IR Triage and Acquisition - Pulling events from Security/System/Powershell for the past 3 days" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_event_var
+        Write-Output $screen_output
+        IR-Artifact-Acquisition-EventLogs($ir_event_var){}
+        $screen_output = "[+] {0} IR Triage and Acquisition - Events pull is complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_event_var
+        Write-Output $screen_output
+        break
     }
-
-# If statements used to check argument and call the functions
-if ($triageType -eq 'all') {
-    $ir_setup_out = IR-Artifact-Acquisition-setup($triageType)
-    Write-Output $ir_setup_out[0..1]
-    $ir_image_var = $ir_setup_out[2]
-    $ir_report_var = $ir_setup_out[3]
-    $ir_event_var = $ir_setup_out[4]
-    $screen_output = "[+] {0} IR Triage and Acquisition - image path: ({1}) report path: ({2}) event path: ({3})" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_image_var, $ir_report_var, $ir_event_var
-    Write-Output $screen_output
-    IR-Artifact-Acquisition-Image($ir_image_var)
-    IR-Artifact-Acquisition-Report-Creation($ir_report_var,'index','None')
-    $screen_output = "[+] {0} IR Triage and Acquisition - index.html created" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
-    Write-Output $screen_output
-    IR-Artifact-Acquisition-Environment($ir_report_var)
-    $screen_output = "[+] {0} IR Triage and Acquisition - Environment Report Complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
-    Write-Output $screen_output
-    IR-Artifact-Acquisition-Network($ir_report_var)
-    $screen_output = "[+] {0} IR Triage and Acquisition - Network Report Complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
-    Write-Output $screen_output
-    IR-Artifact-Acquisition-Process($ir_report_var)
-    $screen_output = "[+] {0} IR Triage and Acquisition - Processes and Services Report Complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
-    Write-Output $screen_output
-    IR-Artifact-Acquisition-File($ir_report_var)
-    $screen_output = "[+] {0} IR Triage and Acquisition - Files and Registry Report Complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
-    Write-Output $screen_output
-    $screen_output = "[+] {0} IR Triage and Acquisition - Pulling events from Security/System/Powershell for the past 3 days" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_event_var
-    Write-Output $screen_output
-    IR-Artifact-Acquisition-EventLogs($ir_event_var){}
-    $screen_output = "[+] {0} IR Triage and Acquisition - Events pull is complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_event_var
-    Write-Output $screen_output
+    {$triageType -eq 'image'} {
+        $ir_setup_out = IR-Artifact-Acquisition-setup($triageType)
+        Write-Output $ir_setup_out[0..1]
+        $ir_image_var = $ir_setup_out[2]
+        $screen_output = "[+] {0} IR Triage and Acquisition - image path: ({1})" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_image_var
+        Write-Output $screen_output
+        IR-Artifact-Acquisition-Image($ir_image_var)
+        break
     }
-
-if ($triageType -eq 'image') {
-    $ir_setup_out = IR-Artifact-Acquisition-setup($triageType)
-    Write-Output $ir_setup_out[0..1]
-    $ir_image_var = $ir_setup_out[2]
-    $screen_output = "[+] {0} IR Triage and Acquisition - image path: ({1})" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_image_var
-    Write-Output $screen_output
-    IR-Artifact-Acquisition-Image($ir_image_var)
+    {$triageType -eq 'report'} {
+        $ir_setup_out = IR-Artifact-Acquisition-setup($triageType)
+        Write-Output $ir_setup_out[0..1]
+        $ir_report_var = $ir_setup_out[3]
+        $screen_output = "[+] {0} IR Triage and Acquisition - report path: ({1})" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
+        Write-Output $screen_output
+        IR-Artifact-Acquisition-Report-Creation($ir_report_var,'index','None')
+        $screen_output = "[+] {0} IR Triage and Acquisition - index.html created" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
+        Write-Output $screen_output
+        IR-Artifact-Acquisition-Environment($ir_report_var)
+        $screen_output = "[+] {0} IR Triage and Acquisition - Environment Report Complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
+        Write-Output $screen_output
+        IR-Artifact-Acquisition-Network($ir_report_var)
+        $screen_output = "[+] {0} IR Triage and Acquisition - Network Report Complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
+        Write-Output $screen_output
+        IR-Artifact-Acquisition-Process($ir_report_var)
+        $screen_output = "[+] {0} IR Triage and Acquisition - Processes and Services Report Complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
+        Write-Output $screen_output
+        IR-Artifact-Acquisition-File($ir_report_var)
+        $screen_output = "[+] {0} IR Triage and Acquisition - Files and Registry Report Complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
+        Write-Output $screen_output
+        break
+     }
+    {$triageType -eq 'event'} {
+        $ir_setup_out = IR-Artifact-Acquisition-setup($triageType)
+        Write-Output $ir_setup_out[0..1]
+        $ir_event_var = $ir_setup_out[4]
+        $screen_output = "[+] {0} IR Triage and Acquisition - event path: ({1})" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_event_var
+        Write-Output $screen_output
+        $screen_output = "[+] {0} IR Triage and Acquisition - Pulling events from Security/System/Powershell for the past 3 days" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_event_var
+        Write-Output $screen_output
+        IR-Artifact-Acquisition-EventLogs($ir_event_var){}
+        $screen_output = "[+] {0} IR Triage and Acquisition - Events pull is complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_event_var
+        Write-Output $screen_output
+        break
     }
-
-if ($triageType -eq 'report') {
-    $ir_setup_out = IR-Artifact-Acquisition-setup($triageType)
-    Write-Output $ir_setup_out[0..1]
-    $ir_report_var = $ir_setup_out[3]
-    $screen_output = "[+] {0} IR Triage and Acquisition - report path: ({1})" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
-    Write-Output $screen_output
-    IR-Artifact-Acquisition-Report-Creation($ir_report_var,'index','None')
-    $screen_output = "[+] {0} IR Triage and Acquisition - index.html created" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
-    Write-Output $screen_output
-    IR-Artifact-Acquisition-Environment($ir_report_var)
-    $screen_output = "[+] {0} IR Triage and Acquisition - Environment Report Complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
-    Write-Output $screen_output
-    IR-Artifact-Acquisition-Network($ir_report_var)
-    $screen_output = "[+] {0} IR Triage and Acquisition - Network Report Complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
-    Write-Output $screen_output
-    IR-Artifact-Acquisition-Process($ir_report_var)
-    $screen_output = "[+] {0} IR Triage and Acquisition - Processes and Services Report Complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
-    Write-Output $screen_output
-    IR-Artifact-Acquisition-File($ir_report_var)
-    $screen_output = "[+] {0} IR Triage and Acquisition - Files and Registry Report Complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_report_var
-    Write-Output $screen_output
-    }
-
-if ($triageType -eq 'event') {
-    $ir_setup_out = IR-Artifact-Acquisition-setup($triageType)
-    Write-Output $ir_setup_out[0..1]
-    $ir_event_var = $ir_setup_out[4]
-    $screen_output = "[+] {0} IR Triage and Acquisition - event path: ({1})" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_event_var
-    Write-Output $screen_output
-    $screen_output = "[+] {0} IR Triage and Acquisition - Pulling events from Security/System/Powershell for the past 3 days" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_event_var
-    Write-Output $screen_output
-    IR-Artifact-Acquisition-EventLogs($ir_event_var){}
-    $screen_output = "[+] {0} IR Triage and Acquisition - Events pull is complete" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_event_var
-    Write-Output $screen_output
-    }
-
+}
 $script_run_path = (Get-Item $PSScriptRoot).FullName + "\7za.exe"
-$ir_pull_path = $env:TEMP  + "\irts\IR_Artifact_Report_MemAquisition-main\7za.exe"
+$ir_pull_path = $env:TEMP + "\irts\IR_Artifact_Report_MemAquisition-main\7za.exe"
 $relative_path = ".\7za.exe"
-if (Test-Path -Path $relative_path) {
-    $zip_7z_path = $relative_path
+$zip_path_array = @($relative_path,$ir_pull_path,$script_run_path)
+$zip_7z_path_cnt = 0
+switch ($zip_path_array){
+    {(Test-Path -Path $_) -eq $true } {
+        $zip_7z_path = $_
+        break
     }
-elseif (Test-Path -Path $script_run_path) {
-    $zip_7z_path = $script_run_path
+    {(Test-Path -Path $_) -eq $false } {
+        $zip_7z_path_cnt += 1
     }
-elseif (Test-Path -Path $ir_pull_path) {
-    $zip_7z_path = $ir_pull_path
+    {$zip_7z_path_cnt -ge 2} {
+        $screen_output = "[+] {0} IR Triage and Acquisition could not find the path of 7za.exe and will now exit. The 7za.exe file needs to be in the script path" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")
+        Write-Output $screen_output
+        exit
     }
-else {
-    $screen_output = "[+] {0} IR Triage and Acquisition could not find the path of 7za.exe and will now exit. The 7za.exe file needs to be in the script path" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")
-    Write-Output $screen_output
-    exit 
-    }
-
+}
 $ir_trgt_comp = $ir_setup_out[5] + "\*"
 $ir_trgt_zip = $ir_setup_out[6] + "\" + $ENV:ComputerName + "_" + $(get-date -UFormat "%Y_%m_%dT%H_%M_%S") + ".7z"
 $screen_output = "[+] {0} IR Triage and Acquisition compression has started, depending on the data being compressed this could take awhile - compressed path: ({1})." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_trgt_zip
@@ -704,7 +706,7 @@ $get_proc_id = $zip_evidence.Id
 do {
     $screen_output = "[+] {0} IR Triage and Acquisition compressing please wait." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S")
     Write-Output $screen_output
-    Start-Sleep -Seconds 20
+    Start-Sleep -Seconds 10
 }
 until ((Get-Process -Name "cmd" -ErrorAction SilentlyContinue | where {$_.Id -eq $get_proc_id}) -eq $null)
 $screen_output = "[+] {0} IR Triage and Acquisition has compressed all findings - compressed path: ({1})." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_trgt_zip

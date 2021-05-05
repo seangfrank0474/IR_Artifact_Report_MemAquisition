@@ -36,7 +36,6 @@
 .NOTES
     Author:  Sean G. Frank, Village Idiot
 #>
-
 # Function call to check drive space to write event, images, and reports
 function IR-Artifact-Acquisition-Setup($triageType) {
     # Setup IR Artifact directory. Looking for the drive with the most free space.
@@ -97,7 +96,6 @@ function IR-Artifact-Acquisition-Setup($triageType) {
     }    
     return $ir_triage_path_return
 }
-
 # Function call to create a raw memory image that will be written to the \IRTriage\<hostname>\image\<hostname>_mem_img_<date>.raw
 function IR-Artifact-Acquisition-Image($ir_image_var) {
     $script_run_path = (Get-Item $PSScriptRoot).FullName + "\winpmem.exe"
@@ -134,7 +132,6 @@ function IR-Artifact-Acquisition-Image($ir_image_var) {
     $screen_output = "[+] {0} IR Triage and Acquisition memory acquisition is complete. Image can be found here: {1}" -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $mem_img_full_path
     Write-Output $screen_output   
 }
-
 # Function call to create the HTML fragments that will be written to the \IRTriage\<hostname>\report\Environment.html
 function IR-Artifact-Acquisition-Environment($ir_report_var) {  
     $create_report = 'env'  
@@ -158,7 +155,6 @@ function IR-Artifact-Acquisition-Environment($ir_report_var) {
     $report_array = @($ir_report_var, $create_report, $post_output)
     IR-Artifact-Acquisition-Report-Creation($report_array)
 }
-
 # Function call to create the HTML fragments that will be written to the \IRTriage\<hostname>\report\Network.html
 function IR-Artifact-Acquisition-Network($ir_report_var) {
     $create_report = 'net'
@@ -289,7 +285,6 @@ function IR-Artifact-Acquisition-Network($ir_report_var) {
     $report_array = @($ir_report_var, $create_report, $post_output)
     IR-Artifact-Acquisition-Report-Creation($report_array)
 }
-
 # Function call to create the HTML fragments that will be written to the \IRTriage\<hostname>\report\ProcSvc.html
 function IR-Artifact-Acquisition-Process($ir_report_var) {
     $create_report = 'procsvc'
@@ -318,7 +313,6 @@ function IR-Artifact-Acquisition-Process($ir_report_var) {
     $report_array = @($ir_report_var, $create_report, $post_output)
     IR-Artifact-Acquisition-Report-Creation($report_array)
 }
-
 # Function call to create the HTML fragments that will be written to the \IRTriage\<hostname>\report\FileReg.html
 function IR-Artifact-Acquisition-File($ir_report_var) {
     $create_report = 'filereg'
@@ -470,7 +464,6 @@ function IR-Artifact-Acquisition-File($ir_report_var) {
     $report_array = @($ir_report_var, $create_report, $post_output)
     IR-Artifact-Acquisition-Report-Creation($report_array)
 }
-
 # Function call to create the JSON format event logs that will be written to the \IRTriage\<hostname>\event
 function IR-Artifact-Acquisition-EventLogs($ir_event_var){
     $log_array = @("Security","System","Windows Powershell")
@@ -502,7 +495,6 @@ function IR-Artifact-Acquisition-EventLogs($ir_event_var){
         $hash_table_event | ConvertTo-Json -Depth 100 | Out-File $event_logs_3d
     }
 }
-
 # Function call to create the HTML reports that will be written to the \IRTriage\<hostname>\report
 function IR-Artifact-Acquisition-Report-Creation($report_array) {
     $ir_report_var = $report_array[0]
@@ -681,16 +673,6 @@ switch ($triageType) {
         break
     }
 }
-
-
-
-
-
-
-
-
-
-
 $script_run_path = (Get-Item $PSScriptRoot).FullName + "\7za.exe"
 $ir_pull_path = $env:TEMP + "\irts\IR_Artifact_Report_MemAquisition-main\7za.exe"
 $relative_path = ".\7za.exe"
@@ -710,17 +692,6 @@ switch ($zip_path_array){
         exit
     }
 }
-
-
-
-
-
-
-
-
-
-
-
 $ir_trgt_comp = $ir_setup_out[5] + "\*"
 $ir_trgt_zip = $ir_setup_out[6] + "\" + $ENV:ComputerName + "_" + $(get-date -UFormat "%Y_%m_%dT%H_%M_%S") + ".7z"
 $screen_output = "[+] {0} IR Triage and Acquisition compression has started, depending on the data being compressed this could take awhile - compressed path: ({1})." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_trgt_zip

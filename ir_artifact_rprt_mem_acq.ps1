@@ -330,26 +330,29 @@ function IR-Artifact-Acquisition-File($ir_report_var) {
     $url_match = '(htt(p|s))://([\w-]+\.)+[\w-]+(/[\w- ./?%&=]*)*?'
     $auto_run_out = @()
     $auto_run_reg_array = @("\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer\Run", "\Software\Microsoft\Windows\CurrentVersion\Run", "\Software\Microsoft\Windows\CurrentVersion\RunOnce", "\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders", "\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\User` Shell` Folders", "\Software\Microsoft\Windows\CurrentVersion\RunServicesOnce", "\Software\Microsoft\Windows\CurrentVersion\RunServices", "\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer\Run")
-    foreach ($reg_path in $auto_run_reg_array) {
-        switch (Test-Path -Path Registry::HKEY_LOCAL_MACHINE$reg_path) {
-            $true {
-                Get-Item -Path HKLM:$reg_path | Foreach {
-                    $key = $_
-                    $key.GetValueNames() | ForEach {
-                        $auto_run_out += New-Object -TypeName PSCustomObject -Property ([ordered]@{
-                            'Hive' = $key.Name
-                            'Name' = $_ -join ','
-                            'Data' = $key.GetValue($_) -join ','
-                            })
-                    }
-                } 
-            }
-            $false {
-                continue
-            }
+    $Null = New-PSDrive -Name HKU -PSProvider Registry -Root HKEY_USERS
+    $user_paths = Get-ChildItem 'HKU:\' -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'S-1-5-21-[0-9]+-[0-9]+-[0-9]+-[0-9]+$' }
+    switch ($auto_run_reg_array) {
+        {(Test-Path -Path Registry::HKEY_LOCAL_MACHINE$_ -ErrorAction SilentlyContinue) -eq $true} {
+            Get-Item -Path HKLM:$_ | Foreach {
+                $key = $_
+                 $key.GetValueNames() | ForEach {
+                     $auto_run_out += New-Object -TypeName PSCustomObject -Property ([ordered]@{
+                         'Hive' = $key.Name
+                         'Name' = $_ -join ','
+                         'Data' = $key.GetValue($_) -join ','
+                         })
+                }
+            } 
         }
-    }    
-    
+        {(Test-Path -Path Registry::HKEY_LOCAL_MACHINE$_ -ErrorAction SilentlyContinue) -eq $false} {
+            $auto_run_out += New-Object -TypeName PSCustomObject -Property ([ordered]@{
+                'Hive' = 'HKEY_LOCAL_MACHINE' + $_
+                'Name' = 'Path does not exist' -join ','
+                'Data' = 'No Data' -join ','
+            })
+        }
+    }
     foreach($userpath in (Get-WmiObject win32_userprofile | Select-Object -ExpandProperty localpath)) {
         if (Test-Path(($userpath + "\AppData\Local\Temp"))) {
             $user_temp = Get-ChildItem -Force ($userpath + "\AppData\Local\Temp\*") | Select-Object FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes | Sort-Object -Property CreationTimeUtc
@@ -446,13 +449,13 @@ function IR-Artifact-Acquisition-File($ir_report_var) {
             }
         }
     }
-    
-    $pref_chk = (Get-ItemProperty "hklm:\system\currentcontrolset\control\session manager\memory management\prefetchparameters").EnablePrefetcher
-    if ($pref_chk -in (1,2,3)){
-        $lst_pref = Get-ChildItem $env:windir\Prefetch\*.pf
-        $get_pref = $lst_pref | Select-Object -Property FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes | Sort-Object -Property CreationTimeUtc | ConvertTo-Html -As Table -Fragment -PreContent '<h3>Windows Prefetch Info</h3>' | Out-String
-        }
-    else { $get_pref = "No Prefetch Enabled" | ConvertTo-Html -As Table -Fragment -PreContent '<h3>Windows Prefetch Info</h3>' | Out-String}
+    switch ((Get-ItemProperty "hklm:\system\currentcontrolset\control\session manager\memory management\prefetchparameters").EnablePrefetcher){
+         {$_ -in (1,2,3)}{
+             $lst_pref = Get-ChildItem $env:windir\Prefetch\*.pf
+             $get_pref = $lst_pref | Select-Object -Property FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes | Sort-Object -Property CreationTimeUtc | ConvertTo-Html -As Table -Fragment -PreContent '<h3>Windows Prefetch Info</h3>' | Out-String
+             }
+         default {$get_pref = "No Prefetch Enabled" | ConvertTo-Html -As Table -Fragment -PreContent '<h3>Windows Prefetch Info</h3>' | Out-String}
+    }
     $get_auto_run = $auto_run_out | Convertto-html -As Table -Fragment -PreContent '<h3>HKLM Auto Run Hive Info</h3>' | Out-String
     $get_hku_url = $hku_url_path_out | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>HKU IE URL Hive Info</h3>’ | Out-String
     $get_hku_autorun = $hku_run_path_out | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3>HKU Auto Run Hive Info</h3>’ | Out-String

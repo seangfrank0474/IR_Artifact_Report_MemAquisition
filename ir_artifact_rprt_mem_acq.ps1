@@ -681,6 +681,16 @@ switch ($triageType) {
         break
     }
 }
+
+
+
+
+
+
+
+
+
+
 $script_run_path = (Get-Item $PSScriptRoot).FullName + "\7za.exe"
 $ir_pull_path = $env:TEMP + "\irts\IR_Artifact_Report_MemAquisition-main\7za.exe"
 $relative_path = ".\7za.exe"
@@ -700,6 +710,17 @@ switch ($zip_path_array){
         exit
     }
 }
+
+
+
+
+
+
+
+
+
+
+
 $ir_trgt_comp = $ir_setup_out[5] + "\*"
 $ir_trgt_zip = $ir_setup_out[6] + "\" + $ENV:ComputerName + "_" + $(get-date -UFormat "%Y_%m_%dT%H_%M_%S") + ".7z"
 $screen_output = "[+] {0} IR Triage and Acquisition compression has started, depending on the data being compressed this could take awhile - compressed path: ({1})." -f $(get-date -UFormat "%Y-%m-%dT%H:%M:%S"), $ir_trgt_zip

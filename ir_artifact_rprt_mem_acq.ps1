@@ -408,11 +408,11 @@ function IR-Artifact-Acquisition-File($ir_report_var) {
                       continue
                   }
                   if ($child_ext -in (".exe",".com",".dll",".sys",".zip",".rar",".dat",".tar",".gz",".tgz",".bin",".js",".pdf",".doc",".docx",".xls",".xlsx")){
-                      $child_item_hash = $child_item |  Select-Object -Property FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes,@{name="Hash";expression={(Get-FileHash $child_fn).hash}}
+                      $child_item_hash = $child_item |  Select-Object -Property CreationTimeUtc, Attributes, FullName, @{name="Hash";expression={(Get-FileHash $child_fn).hash}}, LastAccessTimeUtc, LastWriteTimeUtc
                       $ci_hash_array += $child_item_hash
                   }
                   else {
-                      $child_item_hash = $child_item |  Select-Object -Property FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes,@{name="Hash";expression="None"}
+                      $child_item_hash = $child_item |  Select-Object -Property CreationTimeUtc, Attributes, FullName, @{name="Hash";expression="None"}, LastAccessTimeUtc, LastWriteTimeUtc
                   }
                   if ($user_prof_path -eq $appdata_local){
                       $appdata_local_array += $child_item_hash
@@ -449,11 +449,11 @@ function IR-Artifact-Acquisition-File($ir_report_var) {
             $sys_child_ext = $sys_child.Extension
             $sys_child_fn = $sys_child.FullName
             if ($sys_child_ext -in (".exe",".com",".dll",".sys",".zip",".rar",".dat",".tar",".gz",".tgz",".bin",".js",".pdf",".doc",".docx",".xls",".xlsx")){
-                $sys_child_item_hash = $sys_child |  Select-Object -Property FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes,@{name="Hash";expression={(Get-FileHash $sys_child_fn).hash}}
+                $sys_child_item_hash = $sys_child |  Select-Object -Property CreationTimeUtc, Attributes, FullName, @{name="Hash";expression={(Get-FileHash $sys_child_fn).hash}}, LastAccessTimeUtc, LastWriteTimeUtc
                 $ci_hash_array += $sys_child_item_hash
             }
             else {
-                $sys_child_item_hash = $sys_child |  Select-Object -Property FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes,@{name="Hash";expression="None"}
+                $sys_child_item_hash = $sys_child |  Select-Object -Property CreationTimeUtc, Attributes, FullName, @{name="Hash";expression="None"}, LastAccessTimeUtc, LastWriteTimeUtc
             }
             if ($sys_path -eq $env:SystemDrive){
                 $sys_root_array += $sys_child_item_hash
@@ -540,16 +540,16 @@ function IR-Artifact-Acquisition-File($ir_report_var) {
     $get_hash_out = $ci_hash_array | Sort-Object -Property CreationTimeUtc | Export-Csv -NoTypeInformation -Delimiter ';' -Path $hash_csv_out
     $get_user_ff = $user_ff_brwsr_array | Sort-Object -Property CreationTimeUtc | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F6">User FireFox Browser Info</h3>’ | Out-String
     $get_user_chrm = $user_chrm_brwsr_array | Sort-Object -Property CreationTimeUtc | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F7">User Chrome Browser Info</h3>’ | Out-String
-    $get_app_local = $appdata_local_array | Sort-Object -Property CreationTimeUtc | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F8">User AppData Local Directory Info</h3>’ | Out-String
-    $get_app_roam = $appdata_roam_array | Sort-Object -Property CreationTimeUtc | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F9">User AppData Roaming Directory Info</h3>’ | Out-String
-    $get_user_dld = $user_dld_array | Sort-Object -Property CreationTimeUtc | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F10">User Downloads Directory Info</h3>’ | Out-String
-    $get_user_dsk = $user_dsk_array | Sort-Object -Property CreationTimeUtc | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F11">User Desktop Directory Info</h3>’ | Out-String
-    $get_user_doc = $user_doc_array | Sort-Object -Property CreationTimeUtc | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F12">User Documents Directory Info</h3>’ | Out-String
-    $get_sys_root = $sys_root_array | Sort-Object -Property CreationTimeUtc | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F13">System Root Info</h3>’ | Out-String
-    $get_sys_win = $sys_win_array | Sort-Object -Property CreationTimeUtc | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F14">System Windows Info</h3>’ | Out-String
-    $get_sys_tmp = $sys_temp_array | Sort-Object -Property CreationTimeUtc | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F15">System Temp Info</h3>’ | Out-String
-    $get_sys_w32 = $sys_w32_array | Sort-Object -Property CreationTimeUtc | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F16">System32 Info</h3>’ | Out-String
-    $get_sys_w64 = $sys_w64_array | Sort-Object -Property CreationTimeUtc | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F17">SysWOW64 Info</h3>’ | Out-String
+    $get_app_local = $appdata_local_array | Sort-Object -Property CreationTimeUtc, Hash | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F8">User AppData Local Directory Info</h3>’ | Out-String
+    $get_app_roam = $appdata_roam_array | Sort-Object -Property CreationTimeUtc, Hash | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F9">User AppData Roaming Directory Info</h3>’ | Out-String
+    $get_user_dld = $user_dld_array | Sort-Object -Property CreationTimeUtc, Hash | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F10">User Downloads Directory Info</h3>’ | Out-String
+    $get_user_dsk = $user_dsk_array | Sort-Object -Property CreationTimeUtc, Hash | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F11">User Desktop Directory Info</h3>’ | Out-String
+    $get_user_doc = $user_doc_array | Sort-Object -Property CreationTimeUtc, Hash | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F12">User Documents Directory Info</h3>’ | Out-String
+    $get_sys_root = $sys_root_array | Sort-Object -Property CreationTimeUtc, Hash | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F13">System Root Info</h3>’ | Out-String
+    $get_sys_win = $sys_win_array | Sort-Object -Property CreationTimeUtc, Hash | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F14">System Windows Info</h3>’ | Out-String
+    $get_sys_tmp = $sys_temp_array | Sort-Object -Property CreationTimeUtc, Hash | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F15">System Temp Info</h3>’ | Out-String
+    $get_sys_w32 = $sys_w32_array | Sort-Object -Property CreationTimeUtc, Hash | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F16">System32 Info</h3>’ | Out-String
+    $get_sys_w64 = $sys_w64_array | Sort-Object -Property CreationTimeUtc, Hash | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F17">SysWOW64 Info</h3>’ | Out-String
     $post_output = @($get_auto_run, $get_hku_autorun, $get_progdata_strt, $get_pref, $get_hku_url, $get_user_ff, $get_user_chrm, $get_app_local, $get_app_roam, $get_user_dld, $get_user_dsk, $get_user_doc, $get_sys_root, $get_sys_win, $get_sys_tmp, $get_sys_w32, $get_sys_w64)
     $report_array = @($ir_report_var, $create_report, $post_output)
     IR-Artifact-Acquisition-Report-Creation($report_array)

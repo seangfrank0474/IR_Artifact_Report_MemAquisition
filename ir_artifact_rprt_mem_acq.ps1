@@ -408,7 +408,7 @@ function IR-Artifact-Acquisition-File($ir_report_var) {
                       continue
                   }
                   if ($child_ext -in (".exe",".com",".dll",".sys",".zip",".rar",".dat",".tar",".gz",".tgz",".bin",".js",".pdf",".doc",".docx",".xls",".xlsx")){
-                      $child_item_hash = $child_item |  Select-Object -Property CreationTimeUtc, Attributes, FullName, @{name="Hash";expression={(Get-FileHash $child_fn).hash}}, LastAccessTimeUtc, LastWriteTimeUtc
+                      $child_item_hash = $child_item |  Select-Object -Property CreationTimeUtc, Attributes, FullName, @{name="Hash";expression={(Get-FileHash $child_fn -ErrorAction SilentlyContinue).hash}}, LastAccessTimeUtc, LastWriteTimeUtc
                       $ci_hash_array += $child_item_hash
                   }
                   else {
@@ -449,7 +449,7 @@ function IR-Artifact-Acquisition-File($ir_report_var) {
             $sys_child_ext = $sys_child.Extension
             $sys_child_fn = $sys_child.FullName
             if ($sys_child_ext -in (".exe",".com",".dll",".sys",".zip",".rar",".dat",".tar",".gz",".tgz",".bin",".js",".pdf",".doc",".docx",".xls",".xlsx")){
-                $sys_child_item_hash = $sys_child |  Select-Object -Property CreationTimeUtc, Attributes, FullName, @{name="Hash";expression={(Get-FileHash $sys_child_fn).hash}}, LastAccessTimeUtc, LastWriteTimeUtc
+                $sys_child_item_hash = $sys_child |  Select-Object -Property CreationTimeUtc, Attributes, FullName, @{name="Hash";expression={(Get-FileHash $sys_child_fn -ErrorAction SilentlyContinue).hash}}, LastAccessTimeUtc, LastWriteTimeUtc
                 $ci_hash_array += $sys_child_item_hash
             }
             else {

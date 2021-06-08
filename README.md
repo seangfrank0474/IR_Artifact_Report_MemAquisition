@@ -10,6 +10,47 @@ https://github.com/Velocidex/WinPmem/releases/tag/v4.0.rc1
 Using 7-Zip to compress all the output (7za.exe)
 https://www.7-zip.org/download.html
 
+<dl>
+  <dt><b>Uses Winpmem to do memory acquisitions</b></dt>
+  <dt><b>Pulls three days of winevents from Security, System, and Windows Powershell</b></dt>
+  <dt><b>What is in the Artifact Report:</b></dt>
+  <dt><b>Environment:</b></dt>
+  <dd><i>Processor</i></dd>
+  <dd><i>BIOS</i></dd>
+  <dd><i>OS</i></dd>
+  <dd><i>Drive</i></dd>
+  <dd><i>Windows Defender/AV</i></dd>
+  <dd><i>Installed Programs</i></dd>
+  <dd><i>Environment Variables</i></dd>
+  <dd><i>Local Users/Administrators</i></dd>
+  <dt><b>Network:</b></dt>
+  <dd><i>Adapters</i></dd>
+  <dd><i>Adapters IP Config</i></dd>
+  <dd><i>Adapter Components</i></dd>
+  <dd><i>Host Firewall Config</i></dd>
+  <dd><i>Hosts/Netowrks File</i></dd>
+  <dd><i>Routing</i></dd>
+  <dd><i>Arp Cache</i></dd>
+  <dd><i>SMB Shares</i></dd>
+  <dd><i>DNS Cache</i></dd>
+  <dd><i>Netstat TCP/UDP</i></dd>
+  <dt><b>Processes and Services:</b></dt>
+  <dd><i>Running Processes</i></dd>
+  <dd><i>Modules loaded on the running processes</i></dd>
+  <dd><i>Services</i></dd>
+  <dd><i>Scheduled Tasks</i></dd>
+  <dt><b>Files and Registry:</b></dt>
+  <dd><i>HKLM Auto Run</i></dd>
+  <dd><i>HKU Auto Run</i></dd>
+  <dd><i>Program Data Start Menu</i></dd>
+  <dd><i>Prefetch</i></dd>
+  <dd><i>User Downloads/Desktop/Documents</i></dd>
+  <dd><i>URL Browser Cache IE/FF/Chrome</i></dd>
+  <dd><i>System root/windows/temp/system32/syswow64</i></dd>
+  <dd><i>Sha256 of files in the above directories for extenstions - .exe,.com,.dll,.sys,.zip,.rar,.dat,.tar,.gz,.tgz,.bin,.js,.pdf,.doc,.docx,.xls,.xlsx</i></dd>
+  <dd><i>Creates a seperate CSV file with the above Sha256 to bulk check with things like Virus Total</i></dd>
+</dl>
+
 You can run this script from the box you would like to triage. 
 It will pull the latest zip and expand the archive into your environments temp directory.
 https://github.com/seangfrank0474/IR_Artifact_Mem_Pull/blob/main/irartmem_pull.ps1

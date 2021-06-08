@@ -10,46 +10,52 @@ https://github.com/Velocidex/WinPmem/releases/tag/v4.0.rc1
 Using 7-Zip to compress all the output (7za.exe)
 https://www.7-zip.org/download.html
 
-<dl>
-  <dt>Uses Winpmem to do memory acquisitions</dt>
-  <dt>Pulls three days of winevents from Security, System, and Windows Powershell</dt>
-  <dt>What is in the Artifact Report:</dt>
-  <dt>Environment:</dt>
-  <dd>Processor</dd>
-  <dd>BIOS</dd>
-  <dd>OS</dd>
-  <dd>Drive</dd>
-  <dd>Windows Defender/AV</dd>
-  <dd>Installed Programs</dd>
-  <dd>Environment Variables</dd>
-  <dd>Local Users/Administrators</dd>
-  <dt>Network:</dt>
-  <dd>Adapters</dd>
-  <dd>Adapters IP Config</dd>
-  <dd>Adapter Components</dd>
-  <dd>Host Firewall Config</dd>
-  <dd>Hosts/Netowrks File</dd>
-  <dd>Routing</dd>
-  <dd>Arp Cache</dd>
-  <dd>SMB Shares</dd>
-  <dd>DNS Cache</dd>
-  <dd>Netstat TCP/UDP</dd>
-  <dt>Processes and Services:</dt>
-  <dd>Running Processes</dd>
-  <dd>Modules loaded on the running processes</dd>
-  <dd>Services</dd>
-  <dd>Scheduled Tasks</dd>
-  <dt>Files and Registry:</dt>
-  <dd>HKLM Auto Run</dd>
-  <dd>HKU Auto Run</dd>
-  <dd>Program Data Start Menu</dd>
-  <dd>Prefetch</dd>
-  <dd>User Downloads/Desktop/Documents</dd>
-  <dd>URL Browser Cache IE/FF/Chrome</dd>
-  <dd>System root/windows/temp/system32/syswow64</dd>
-  <dd>Sha256 of files in the above directories for extenstions - .exe,.com,.dll,.sys,.zip,.rar,.dat,.tar,.gz,.tgz,.bin,.js,.pdf,.doc,.docx,.xls,.xlsx</dd>
-  <dd>Creates a seperate CSV file with the above Sha256 to bulk check with things like Virus Total</dd>
-</dl>
+<pre>
+  Uses Winpmem to do memory acquisitions
+  
+  Pulls three days of winevents from Security, System, and Windows Powershell
+  
+  What is in the Artifact Report?
+  
+  Environment:
+  Processor
+  BIOS
+  OS
+  Drive
+  Windows Defender/AV
+  Installed Programs
+  Environment Variables
+  Local Users/Administrators
+  
+  Network:
+  Adapters
+  Adapters IP Config
+  Adapter Components
+  Host Firewall Config
+  Hosts/Netowrks File
+  Routing
+  Arp Cache
+  SMB Shares
+  DNS Cache
+  Netstat TCP/UDP
+  
+  Processes and Services:
+  Running Processes
+  Modules loaded on the running processes
+  Services
+  Scheduled Tasks
+  
+  Files and Registry:
+  HKLM Auto Run
+  HKU Auto Run
+  Program Data Start Menu
+  Prefetch
+  User Downloads/Desktop/Documents
+  URL Browser Cache IE/FF/Chrome
+  System root/windows/temp/system32/syswow64
+  Sha256 of files in the above directories for extenstions - .exe,.com,.dll,.sys,.zip,.rar,.dat,.tar,.gz,.tgz,.bin,.js,.pdf,.doc,.docx,.xls,.xlsx
+  Creates a seperate CSV file with the above Sha256 to bulk check with things like Virus Total
+</pre>
 
 You can run this script from the box you would like to triage. 
 It will pull the latest zip and expand the archive into your environments temp directory.
@@ -75,5 +81,5 @@ https://github.com/seangfrank0474/IR_Artifact_Mem_Pull/blob/main/irartmem_pull.p
   
   image - Runs winpmem.exe to pull a memory image. Winpmem.exe needs to be in the same directory as the script
   ir_artifact_rprt_mem_acq.ps1 image
-
+</pre>
   

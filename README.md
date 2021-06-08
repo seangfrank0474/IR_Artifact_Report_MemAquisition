@@ -75,5 +75,5 @@ https://github.com/seangfrank0474/IR_Artifact_Mem_Pull/blob/main/irartmem_pull.p
   
   image - Runs winpmem.exe to pull a memory image. Winpmem.exe needs to be in the same directory as the script
   ir_artifact_rprt_mem_acq.ps1 image
-</pre>
+
   

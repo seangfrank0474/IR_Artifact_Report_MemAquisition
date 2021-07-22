@@ -41,7 +41,7 @@ https://www.7-zip.org/download.html
   
   Processes and Services:
   Running Processes
-  Child Processes linked to Parent Processes and CLI 
+  Child Processes linked to Parent Processes and CLI - NEW
   Modules loaded on the running processes
   Services
   Scheduled Tasks
@@ -51,7 +51,7 @@ https://www.7-zip.org/download.html
   HKU Auto Run
   Program Data Start Menu
   Prefetch
-  Named Pipes
+  Named Pipes - NEW
   User Downloads/Desktop/Documents
   URL Browser Cache IE/FF/Chrome
   System root/windows/temp/system32/syswow64

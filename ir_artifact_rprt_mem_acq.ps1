@@ -289,9 +289,9 @@ function IR-Artifact-Acquisition-Network($ir_report_var) {
 function IR-Artifact-Acquisition-Process($ir_report_var) {
     $create_report = 'procsvc'
     # Host Running Services, Process, and Scheduled Task Artifacts converted into html fragments
-    $get_procc = Get-Process | Sort-Object -Property CreateUtc| ConvertTo-Html -PreContent ‘<h3 id="P1">Process Info</h3>’ -Fragment -Property ProcessName, Id, Handles, PriorityClass, FileVersion, Path | Out-String
-    $get_svc = Get-Service  | ConvertTo-Html -PreContent ‘<h3 id="P3"> Service Info</h3>’ -Fragment -Property Name, ServiceName, DisplayName,  Status, StartType | Out-String
-    $get_schd_tsk = Get-ScheduledTask | ConvertTo-Html -As Table -PreContent ‘<h3 id="P4">Scheduled Tasks Info</h3>’ -Fragment -Property TaskName, Author, Date, Description, URI, Version, State | Out-String
+    $get_procc = Get-Process -ErrorAction SilentlyContinue | Sort-Object -Property StartTime| ConvertTo-Html -PreContent ‘<h3 id="P1">Process Info</h3>’ -Fragment -Property ProcessName, Id, Path, Handles, PriorityClass, FileVersion  | Out-String
+    $get_svc = Get-Service | ConvertTo-Html -PreContent ‘<h3 id="P4">Service Info</h3>’ -Fragment -Property Name, ServiceName, DisplayName,  Status, StartType | Out-String
+    $get_schd_tsk = Get-ScheduledTask | ConvertTo-Html -As Table -PreContent ‘<h3 id="P5">Scheduled Tasks Info</h3>’ -Fragment -Property TaskName, Author, Date, Description, URI, Version, State | Out-String
     $get_proc_mod_out = Get-Process -ErrorAction SilentlyContinue | % { 
     $MM = $_.MainModule | Select-Object -ExpandProperty FileName
     $Modules = $($_.Modules | Select-Object -ExpandProperty FileName)
@@ -308,8 +308,37 @@ function IR-Artifact-Acquisition-Process($ir_report_var) {
         $get_proc_mod.LastWriteUTC = (Get-Item -Force $Module -ErrorAction SilentlyContinue).LastWriteTimeUtc
         $get_proc_mod
     }
-    } | Sort-Object -Property CreateUtc | ConvertTo-Html -As Table -PreContent ‘<h3 id="P2">Process and Loaded Modules Info</h3>’ -Fragment -Property ProcessName, ProcPID, Name, ParentPath, CreateUTC, LastAccessUTC, LastWriteUTC| Out-String
-    $post_output = @($get_procc, $get_proc_mod_out, $get_svc, $get_schd_tsk)
+    } | Sort-Object -Property CreateUtc | ConvertTo-Html -As Table -PreContent ‘<h3 id="P3">Process and Loaded Modules Info</h3>’ -Fragment -Property ProcessName, ProcPID, Name, ParentPath, CreateUTC, LastAccessUTC, LastWriteUTC| Out-String
+    $main_pid = (Get-Process -ErrorAction SilentlyContinue).Id
+    $proc_pid_cli = @()
+    foreach($mpid in $main_pid) {
+        $main_info = (Get-CimInstance -Class Win32_Process -Filter "ProcessId = $mpid" -ErrorAction SilentlyContinue)
+        $process_name = $main_info.ProcessName
+        $process_path = $main_info.ExecutablePath
+        $process_cli = $main_info.CommandLine
+        $process_ctime = $main_info.CreationDate
+        $parent_pid = $main_info.ParentProcessId
+        $parent_info = (Get-CimInstance -Class Win32_Process -Filter "ProcessId = $parent_pid" -ErrorAction SilentlyContinue)
+        $parent_name = $parent_info.ProcessName
+        $parent_path = $parent_info.ExecutablePath
+        $parent_cli = $parent_info.CommandLine
+        $parent_ctime = $parent_info.CreationDate
+        $proc_pid_cli += New-Object -TypeName PSCustomObject -Property ([ordered]@{
+                            'Child_Creation_Date' = $process_ctime
+                            'Child_Process_Name' = $process_name -join ','
+                            'Child_PID' = $mpid -join ','
+                            'Child_Exec_Path' = $process_path -join ','
+                            'Child_CLI' = $process_cli -join ','
+                            'Parent_Creation_Date' = $parent_ctime -join ','
+                            'Parent_Process_Name' =  $parent_name -join ','
+                            'Parent_PID' = $parent_pid -join ','
+                            'Parent_Exec_Path' =  $parent_path -join ','
+                            'Parent_CLI' =  $parent_cli -join ',' 
+                            
+                            })
+    }
+    $get_proc_cli = $proc_pid_cli | Sort-Object -Property  Child_Creation_Date | ConvertTo-Html -As Table -PreContent ‘<h3 id="P2">Process (Child - Parent - CommandLine) Info</h3>’ -Fragment | Out-String
+    $post_output = @($get_procc, $get_proc_cli, $get_proc_mod_out, $get_svc, $get_schd_tsk)
     $report_array = @($ir_report_var, $create_report, $post_output)
     IR-Artifact-Acquisition-Report-Creation($report_array)
 }
@@ -550,7 +579,8 @@ function IR-Artifact-Acquisition-File($ir_report_var) {
     $get_sys_tmp = $sys_temp_array | Sort-Object -Property CreationTimeUtc, Hash | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F15">System Temp Info</h3>’ | Out-String
     $get_sys_w32 = $sys_w32_array | Sort-Object -Property CreationTimeUtc, Hash | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F16">System32 Info</h3>’ | Out-String
     $get_sys_w64 = $sys_w64_array | Sort-Object -Property CreationTimeUtc, Hash | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F17">SysWOW64 Info</h3>’ | Out-String
-    $post_output = @($get_auto_run, $get_hku_autorun, $get_progdata_strt, $get_pref, $get_hku_url, $get_user_ff, $get_user_chrm, $get_app_local, $get_app_roam, $get_user_dld, $get_user_dsk, $get_user_doc, $get_sys_root, $get_sys_win, $get_sys_tmp, $get_sys_w32, $get_sys_w64)
+    $get_named_pipe = Get-Childitem \\.\pipe\ | Select Name, FullName | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F18">Named Pipe Info</h3>’ | Out-String
+    $post_output = @($get_auto_run, $get_hku_autorun, $get_progdata_strt, $get_pref, $get_named_pipe, $get_hku_url, $get_user_ff, $get_user_chrm, $get_app_local, $get_app_roam, $get_user_dld, $get_user_dsk, $get_user_doc, $get_sys_root, $get_sys_win, $get_sys_tmp, $get_sys_w32, $get_sys_w64)
     $report_array = @($ir_report_var, $create_report, $post_output)
     IR-Artifact-Acquisition-Report-Creation($report_array)
 }
@@ -660,7 +690,7 @@ function IR-Artifact-Acquisition-Report-Creation($report_array) {
         $body = @’
             <p>
                 <center>
-                    <h2>Processes and Services Artifact Report</h2>
+                    <h2>Network Artifact Report</h2>
                 </center>
             <p>
             <p>
@@ -681,7 +711,7 @@ function IR-Artifact-Acquisition-Report-Creation($report_array) {
                 </center>
             <p>
             <p>
-                <a href="#P1">Processes</a>&nbsp;<a href="#P2">Process Modules</a>&nbsp;<a href="#P3">Services</a>&nbsp;<a href="#P4">Scheduled Tasks</a>
+                <a href="#P1">Processes</a>&nbsp;<a href="#P2">Process CommandLines</a>&nbsp;<a href="#P3">Process Modules</a>&nbsp;<a href="#P4">Services</a>&nbsp;<a href="#P5">Scheduled Tasks</a>
                
 ‘@
         $postcontent = $post_output
@@ -695,7 +725,7 @@ function IR-Artifact-Acquisition-Report-Creation($report_array) {
                 </center>
             <p>
             <p>
-                <a href="#F1">HKLM Auto Run</a>&nbsp;<a href="#F2">HKU Auto Run</a>&nbsp;<a href="#F3">Program Data Start Menu</a>&nbsp;<a href="#F4">Prefetch</a>
+                <a href="#F1">HKLM Auto Run</a>&nbsp;<a href="#F2">HKU Auto Run</a>&nbsp;<a href="#F3">Program Data Start Menu</a>&nbsp;<a href="#F4">Prefetch</a>;<a href="#F18">Named Pipes</a>
             <p>
                 <a href="#F5">IE Browser</a>&nbsp;<a href="#F6">FireFox Browser</a>&nbsp;<a href="#F7">Chrome Browser</a>
             <p>

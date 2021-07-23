@@ -28,7 +28,10 @@
 
 .EXAMPLE
      Need to run in elevated privileges
-     .\memacq_artifactrpt.ps1 both
+     .\ir_artifact_rprt_mem_acq.ps1 all
+     .\ir_artifact_rprt_mem_acq.ps1 report
+     .\ir_artifact_rprt_mem_acq.ps1 event
+     .\ir_artifact_rprt_mem_acq.ps1 image
 
 .INPUTS
     String

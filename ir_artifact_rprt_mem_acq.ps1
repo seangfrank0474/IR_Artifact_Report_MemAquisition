@@ -292,7 +292,7 @@ function IR-Artifact-Acquisition-Network($ir_report_var) {
 function IR-Artifact-Acquisition-Process($ir_report_var) {
     $create_report = 'procsvc'
     # Host Running Services, Process, and Scheduled Task Artifacts converted into html fragments
-    $get_procc = Get-Process -ErrorAction SilentlyContinue | Sort-Object -Property StartTime| ConvertTo-Html -PreContent ‘<h3 id="P1">Process Info</h3>’ -Fragment -Property ProcessName, Id, Path, Handles, PriorityClass, FileVersion  | Out-String
+    $get_procc = Get-Process -ErrorAction SilentlyContinue | Select StartTime, ProcessName, Id, Path, Handles, PriorityClass, FileVersion | Sort-Object -Property StartTime | ConvertTo-Html -PreContent ‘<h3 id="P1">Process Info</h3>’ -Fragment -Property StartTime, ProcessName, Id, Path, Handles, PriorityClass, FileVersion  | Out-String
     $get_svc = Get-Service | ConvertTo-Html -PreContent ‘<h3 id="P4">Service Info</h3>’ -Fragment -Property Name, ServiceName, DisplayName,  Status, StartType | Out-String
     $get_schd_tsk = Get-ScheduledTask | ConvertTo-Html -As Table -PreContent ‘<h3 id="P5">Scheduled Tasks Info</h3>’ -Fragment -Property TaskName, Author, Date, Description, URI, Version, State | Out-String
     $get_proc_mod_out = Get-Process -ErrorAction SilentlyContinue | % { 
@@ -701,7 +701,7 @@ function IR-Artifact-Acquisition-Report-Creation($report_array) {
             <p>
                 <a href="#N5">Hosts File</a>&nbsp;<a href="#N6">Networks File</a>&nbsp;<a href="#N7">Route Config</a>&nbsp;<a href="#N8">Arp Cache</a>
             <p>
-                <a href="#N9">Mapped SMB</a>&nbsp;<a href="#N10">NetStat TCP</a>&nbsp;<a href="#N11">NetStat UDP</a>&nbsp;<a href="#N12">DNS Cache</a>
+                <a href="#N9">Mapped SMB</a>&nbsp;<a href="#N12">DNS Cache</a>&nbsp;<a href="#N10">NetStat TCP</a>&nbsp;<a href="#N11">NetStat UDP</a>
 ‘@
         $postcontent = $post_output
         $html_report = 'Network.html'
@@ -728,7 +728,7 @@ function IR-Artifact-Acquisition-Report-Creation($report_array) {
                 </center>
             <p>
             <p>
-                <a href="#F1">HKLM Auto Run</a>&nbsp;<a href="#F2">HKU Auto Run</a>&nbsp;<a href="#F3">Program Data Start Menu</a>&nbsp;<a href="#F4">Prefetch</a>;<a href="#F18">Named Pipes</a>
+                <a href="#F1">HKLM Auto Run</a>&nbsp;<a href="#F2">HKU Auto Run</a>&nbsp;<a href="#F3">Program Data Start Menu</a>&nbsp;<a href="#F4">Prefetch</a>&nbsp;<a href="#F18">Named Pipes</a>
             <p>
                 <a href="#F5">IE Browser</a>&nbsp;<a href="#F6">FireFox Browser</a>&nbsp;<a href="#F7">Chrome Browser</a>
             <p>

@@ -144,9 +144,9 @@ function IR-Artifact-Acquisition-Environment($ir_report_var) {
     $get_os = Get-WmiObject -Class Win32_OperatingSystem -ErrorAction SilentlyContinue | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3 id="E3">OS Info</h3>’ -Property Organization, RegisteredUser, Version, BuildNumber, SerialNumber, SystemDirectory | Out-String
     $get_drv = Get-WmiObject -Class Win32_LogicalDisk -Filter 'DriveType=3' -ErrorAction SilentlyContinue | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3 id="E4">Drive Info</h3>’ -Property DeviceID, DriveType, ProviderName, Size, FreeSpace | Out-String
     $get_av = Get-WmiObject -namespace root\Microsoft\SecurityClient -Class AntimalwareHealthStatus -ErrorAction SilentlyContinue | select Name, Version, Enabled, AntispywareEnabled, AntivirusEnabled, BehaviorMonitorEnabled, IoavProtectionEnabled, NisEnabled, RtpEnabled | ConvertTo-Html -As List -Fragment -PreContent ‘<h3 id="E5">AV Info</h3>’ | Out-String
-    $get_install_prog = Get-WmiObject -Class Win32_Product | Select Name, Vendor, Version | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3 id="E6">Installed Programs Info</h3>’ | Out-String
+    $get_install_prog = Get-WmiObject -Class Win32_Product -ErrorAction SilentlyContinue | Select Name, Vendor, Version | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3 id="E6">Installed Programs Info</h3>’ | Out-String
     $get_env = Get-ChildItem ENV: -ErrorAction SilentlyContinue | ConvertTo-Html -As TABLE -Fragment -PreContent ‘<h3 id="E7">Environment Info</h3>’ -Property Name, Value| Out-String
-    $get_local_user = Get-LocalUser | ConvertTo-Html -As Table -PreContent ‘<h3 id="E8">Local Users Info</h3>’ -Fragment -Property Name, FullName, SID, Description, LastLogon, PasswordRequired, PasswordLastSet, PasswordExpires, UserMayChangePassword, Enabled | Out-String
+    $get_local_user = Get-LocalUser -ErrorAction SilentlyContinue | ConvertTo-Html -As Table -PreContent ‘<h3 id="E8">Local Users Info</h3>’ -Fragment -Property Name, FullName, SID, Description, LastLogon, PasswordRequired, PasswordLastSet, PasswordExpires, UserMayChangePassword, Enabled | Out-String
     $get_local_admins = & net localgroup administrators | Select-Object -Skip 6 | ? {
     $_ -and $_ -notmatch "The command completed successfully" 
     } | % {
@@ -166,27 +166,27 @@ function IR-Artifact-Acquisition-Network($ir_report_var) {
     foreach ($cmd_array in ("Get-NetAdapter","Get-NetIPConfiguration","Get-NetRoute","Get-NetAdapterBinding","Get-NetNeighbor")){
         switch -casesensitive ($cmd_array) {
             "Get-NetAdapter" { 
-                $get_net_adpt = (Get-NetAdapter | Select-Object -Property Name, ifIndex, InterfaceDescription, MacAddress, Status)
+                $get_net_adpt = (Get-NetAdapter -ErrorAction SilentlyContinue | Select-Object -Property Name, ifIndex, InterfaceDescription, MacAddress, Status)
                 $net_cnt = ($get_net_adpt.ifIndex | measure).Count 
                 $net_adpt_result = @()
                 }
             "Get-NetIPConfiguration" { 
-                $get_net_cfg = (Get-NetIPConfiguration | Select-Object -Property InterfaceIndex, InterfaceAlias,Ipv4Address, DNSServer, DefaultIPGateway)
+                $get_net_cfg = (Get-NetIPConfiguration -ErrorAction SilentlyContinue | Select-Object -Property InterfaceIndex, InterfaceAlias,Ipv4Address, DNSServer, DefaultIPGateway)
                 $net_cnt = ($get_net_cfg.InterfaceIndex | measure).Count
                 $net_cfg_result = @()
                 }
             "Get-NetRoute" { 
-                $get_net_rt = (Get-NetRoute | Select-Object -Property ifIndex, DestinationPrefix, NextHop, RouteMetric)
+                $get_net_rt = (Get-NetRoute -ErrorAction SilentlyContinue | Select-Object -Property ifIndex, DestinationPrefix, NextHop, RouteMetric)
                 $net_cnt = ($get_net_rt.ifIndex | measure).Count 
                 $net_rt_result = @()
                 }
             "Get-NetAdapterBinding" { 
-                $get_net_bnd = (Get-NetAdapterBinding | Select-Object -Property Name, DisplayName, ComponentID, Enables)
+                $get_net_bnd = (Get-NetAdapterBinding -ErrorAction SilentlyContinue | Select-Object -Property Name, DisplayName, ComponentID, Enables)
                 $net_cnt = ($get_net_bnd.Name | measure).Count
                 $net_bnd_result = @()
                 }
             "Get-NetNeighbor" { 
-                $get_net_arp = (Get-NetNeighbor | Select-Object -Property ifIndex, IPAddress, LinkLayerAddress, State)
+                $get_net_arp = (Get-NetNeighbor -ErrorAction SilentlyContinue | Select-Object -Property ifIndex, IPAddress, LinkLayerAddress, State)
                 $net_cnt = ($get_net_arp.ifIndex | measure).Count 
                 $net_arp_result = @()
                 }
@@ -241,11 +241,11 @@ function IR-Artifact-Acquisition-Network($ir_report_var) {
     $post_net_file = "<pre>`n None `n </pre>"
     $post_fw_status = "<pre>`n None `n </pre>"
     If (Get-Content $env:windir\system32\drivers\etc\hosts){
-        $hosts_file = (Get-Content $env:windir\system32\drivers\etc\hosts) | Out-String
+        $hosts_file = (Get-Content $env:windir\system32\drivers\etc\hosts -ErrorAction SilentlyContinue) | Out-String
         $post_host_file = "<pre>`n" + $hosts_file + "`n </pre>"
         }
     If (Get-Content $env:windir\system32\drivers\etc\networks){
-        $network_file = (Get-Content $env:windir\system32\drivers\etc\networks) | Out-String
+        $network_file = (Get-Content $env:windir\system32\drivers\etc\networks -ErrorAction SilentlyContinue) | Out-String
         $post_net_file = "<pre>`n" + $network_file + "`n </pre>"
         }
     If (netsh firewall show state) {
@@ -255,17 +255,17 @@ function IR-Artifact-Acquisition-Network($ir_report_var) {
         $post_fw_status = "<pre>`n" + $fw_state + "`n" + $fw_config + "`n" + $fw_dump + "`n </pre>"
         }
     $proc_net_array = @{}
-    Get-Process -IncludeUserName | ForEach-Object {
+    Get-Process -IncludeUserName -ErrorAction SilentlyContinue | ForEach-Object {
         $proc_net_array[$_.Id] = $_
         }
-    $net_con_tcp = Get-NetTCPConnection |
+    $net_con_tcp = Get-NetTCPConnection -ErrorAction SilentlyContinue |
         Select-Object LocalAddress, LocalPort, RemoteAddress,
             RemotePort, State, CreationTime,
             @{Name="PID";         Expression={ $_.OwningProcess }},
             @{Name="ProcessName"; Expression={ $proc_net_array[[int]$_.OwningProcess].ProcessName }}, 
             @{Name="UserName";    Expression={ $proc_net_array[[int]$_.OwningProcess].UserName }} |
             Sort-Object -Property State, CreationTime
-    $net_con_udp = Get-NetUDPEndpoint |
+    $net_con_udp = Get-NetUDPEndpoint -ErrorAction SilentlyContinue |
     Select-Object LocalAddress, LocalPort, CreationTime,
         @{Name="PID";         Expression={ $_.OwningProcess }},
         @{Name="ProcessName"; Expression={ $proc_net_array[[int]$_.OwningProcess].ProcessName }}, 
@@ -283,7 +283,7 @@ function IR-Artifact-Acquisition-Network($ir_report_var) {
     $get_smb = Get-SmbShare -ErrorAction SilentlyContinue | Select-Object Name, ShareType, Path, Description, SecurityDescriptor, EncryptData, CurrentUsers | ConvertTo-Html -As Table -PreContent ‘<h3 id="N9">SMB Shares Info</h3>’ -Fragment | Out-String
     $get_net_con_tcp = $net_con_tcp | ConvertTo-Html -As Table -Fragment -PreContent '<h3 id="N10">Windows Netstat TCP Info</h3>' | Out-String
     $get_net_con_udp = $net_con_udp | ConvertTo-Html -As Table -Fragment -PreContent '<h3 id="N11">Windows Netstat UDP Info</h3>' | Out-String
-    $get_dns_cache = Get-DnsClientCache | ConvertTo-Html -As Table -PreContent ‘<h3 id="N12">DNS Cache Info (Status 0 equals success)</h3>’ -Fragment -Property Entry, Data, TimeToLive, Status | Out-String
+    $get_dns_cache = Get-DnsClientCache -ErrorAction SilentlyContinue | ConvertTo-Html -As Table -PreContent ‘<h3 id="N12">DNS Cache Info (Status 0 equals success)</h3>’ -Fragment -Property Entry, Data, TimeToLive, Status | Out-String
     $post_output = @($net_adpt, $net_cfg, $net_bnd, $get_fw_status, $get_host_file, $get_net_file, $net_rt, $net_arp, $get_smb, $get_dns_cache, $get_net_con_tcp, $get_net_con_udp)
     $report_array = @($ir_report_var, $create_report, $post_output)
     IR-Artifact-Acquisition-Report-Creation($report_array)
@@ -293,8 +293,8 @@ function IR-Artifact-Acquisition-Process($ir_report_var) {
     $create_report = 'procsvc'
     # Host Running Services, Process, and Scheduled Task Artifacts converted into html fragments
     $get_procc = Get-Process -ErrorAction SilentlyContinue | Select StartTime, ProcessName, Id, Path, Handles, PriorityClass, FileVersion | Sort-Object -Property StartTime | ConvertTo-Html -PreContent ‘<h3 id="P1">Process Info</h3>’ -Fragment -Property StartTime, ProcessName, Id, Path, Handles, PriorityClass, FileVersion  | Out-String
-    $get_svc = Get-Service | ConvertTo-Html -PreContent ‘<h3 id="P4">Service Info</h3>’ -Fragment -Property Name, ServiceName, DisplayName,  Status, StartType | Out-String
-    $get_schd_tsk = Get-ScheduledTask | ConvertTo-Html -As Table -PreContent ‘<h3 id="P5">Scheduled Tasks Info</h3>’ -Fragment -Property TaskName, Author, Date, Description, URI, Version, State | Out-String
+    $get_svc = Get-Service -ErrorAction SilentlyContinue | ConvertTo-Html -PreContent ‘<h3 id="P4">Service Info</h3>’ -Fragment -Property Name, ServiceName, DisplayName,  Status, StartType | Out-String
+    $get_schd_tsk = Get-ScheduledTask -ErrorAction SilentlyContinue | ConvertTo-Html -As Table -PreContent ‘<h3 id="P5">Scheduled Tasks Info</h3>’ -Fragment -Property TaskName, Author, Date, Description, URI, Version, State | Out-String
     $get_proc_mod_out = Get-Process -ErrorAction SilentlyContinue | % { 
     $MM = $_.MainModule | Select-Object -ExpandProperty FileName
     $Modules = $($_.Modules | Select-Object -ExpandProperty FileName)
@@ -390,7 +390,7 @@ function IR-Artifact-Acquisition-File($ir_report_var) {
             })
         }
     }
-    foreach ($user_profile in (Get-WmiObject win32_userprofile | Select-Object -ExpandProperty localpath)){
+    foreach ($user_profile in (Get-WmiObject win32_userprofile -ErrorAction SilentlyContinue | Select-Object -ExpandProperty localpath)){
         $appdata_local = $user_profile + "\AppData\Local"
         $appdata_roam = $user_profile + "\AppData\Roaming"
         $user_dld = $user_profile + "\Downloads"
@@ -419,7 +419,7 @@ function IR-Artifact-Acquisition-File($ir_report_var) {
                 }              
               if ($user_prof_path -eq $user_ff){
                   $get_ff_prof = Get-ChildItem -Path "$user_prof_path\*.default*\" -ErrorAction SilentlyContinue
-                  $get_cont_ff = Get-Content $get_ff_prof\places.sqlite | Select-String -Pattern $url_match -AllMatches |Select-Object -ExpandProperty Matches |Sort -Unique
+                  $get_cont_ff = Get-Content $get_ff_prof\places.sqlite -ErrorAction SilentlyContinue | Select-String -Pattern $url_match -AllMatches |Select-Object -ExpandProperty Matches |Sort -Unique
                   $get_cont_ff.Value |ForEach-Object {
                       if ($_ -match $Search) {
                           ForEach-Object {
@@ -518,7 +518,7 @@ function IR-Artifact-Acquisition-File($ir_report_var) {
             $hku_full_url_path = $user_path + $hku_url_path
             switch (Test-Path -Path $hku_full_url_path ) { 
                 $true{
-                    Get-Item -Path $hku_full_url_path | Foreach {
+                    Get-Item -Path $hku_full_url_path -ErrorAction SilentlyContinue | Foreach {
                     $key = $_
                     $key.GetValueNames() | ForEach {
                         $hku_url_path_out += New-Object -TypeName PSCustomObject -Property ([ordered]@{
@@ -539,7 +539,7 @@ function IR-Artifact-Acquisition-File($ir_report_var) {
             $hku_full_run_path = $user_path + $hku_run_path
             switch (Test-Path -Path $hku_full_run_path ) { 
                 $true{
-                    Get-Item -Path $hku_full_run_path | Foreach {
+                    Get-Item -Path $hku_full_run_path -ErrorAction SilentlyContinue | Foreach {
                     $key = $_
                     $key.GetValueNames() | ForEach {
                         $hku_run_path_out += New-Object -TypeName PSCustomObject -Property ([ordered]@{
@@ -566,7 +566,7 @@ function IR-Artifact-Acquisition-File($ir_report_var) {
     }
     $get_auto_run = $auto_run_out | Convertto-html -As Table -Fragment -PreContent '<h3 id="F1">HKLM Auto Run Hive Info</h3>' | Out-String
     $get_hku_autorun = $hku_run_path_out | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3 id="F2">HKU Auto Run Hive Info</h3>’ | Out-String
-    $get_progdata_strt = (Get-ChildItem $env:ProgramData\Microsoft\Windows\Start` Menu\Programs | Select-Object FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes | Sort-Object -Property CreationTimeUtc | ConvertTo-Html -As Table -Fragment -PreContent '<h3  id="F3">Program Data Start Directory Info</h3>' | Out-String)
+    $get_progdata_strt = (Get-ChildItem $env:ProgramData\Microsoft\Windows\Start` Menu\Programs -ErrorAction SilentlyContinue | Select-Object FullName, CreationTimeUtc, LastAccessTimeUtc, LastWriteTimeUtc, Extension, Attributes | Sort-Object -Property CreationTimeUtc | ConvertTo-Html -As Table -Fragment -PreContent '<h3  id="F3">Program Data Start Directory Info</h3>' | Out-String)
     $get_hku_url = $hku_url_path_out | ConvertTo-Html -As Table -Fragment -PreContent ‘<h3 id="F5">IE Browser Info</h3>’ | Out-String
     $hash_csv_out = $ir_report_var + "\" +$ENV:ComputerName + "_sha256_files_" + $(get-date -UFormat "%Y%m%dT%H%M%S") + ".csv"
     $get_hash_out = $ci_hash_array | Sort-Object -Property CreationTimeUtc | Export-Csv -NoTypeInformation -Delimiter ';' -Path $hash_csv_out
@@ -582,7 +582,7 @@ function IR-Artifact-Acquisition-File($ir_report_var) {
     $get_sys_tmp = $sys_temp_array | Sort-Object -Property CreationTimeUtc, Hash | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F15">System Temp Info</h3>’ | Out-String
     $get_sys_w32 = $sys_w32_array | Sort-Object -Property CreationTimeUtc, Hash | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F16">System32 Info</h3>’ | Out-String
     $get_sys_w64 = $sys_w64_array | Sort-Object -Property CreationTimeUtc, Hash | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F17">SysWOW64 Info</h3>’ | Out-String
-    $get_named_pipe = Get-Childitem \\.\pipe\ | Select Name, FullName | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F18">Named Pipe Info</h3>’ | Out-String
+    $get_named_pipe = Get-Childitem \\.\pipe\ -ErrorAction SilentlyContinue | Select Name, FullName | ConvertTo-Html -AS Table -Fragment -PreContent ‘<h3 id="F18">Named Pipe Info</h3>’ | Out-String
     $post_output = @($get_auto_run, $get_hku_autorun, $get_progdata_strt, $get_pref, $get_named_pipe, $get_hku_url, $get_user_ff, $get_user_chrm, $get_app_local, $get_app_roam, $get_user_dld, $get_user_dsk, $get_user_doc, $get_sys_root, $get_sys_win, $get_sys_tmp, $get_sys_w32, $get_sys_w64)
     $report_array = @($ir_report_var, $create_report, $post_output)
     IR-Artifact-Acquisition-Report-Creation($report_array)
